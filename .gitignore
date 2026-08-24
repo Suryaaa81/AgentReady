@@ -3,7 +3,11 @@
 .env.local
 .env.*.local
 
-# ── Python ─────────────────────────────────────────────────────────────────────
+# Runtime files
+backend/*.db
+backend/receipts/
+
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -15,6 +19,7 @@ dist/
 build/
 .eggs/
 .venv/
+backend/.venv/
 venv/
 env/
 .Python
@@ -28,9 +33,10 @@ dmypy.json
 htmlcov/
 .ruff_cache/
 
-# ── Node / Frontend ────────────────────────────────────────────────────────────
-node_modules/
+# Frontend
+frontend/node_modules/
 frontend/dist/
+frontend/.env
 frontend/.vite/
 frontend/coverage/
 npm-debug.log*
