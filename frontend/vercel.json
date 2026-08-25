@@ -6,11 +6,8 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/((?!api/.*).*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
-  ],
-  "env": {
-    "VITE_API_URL": "@agentready_api_url"
-  }
+  ]
 }
