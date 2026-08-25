@@ -1,15 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import React, { Suspense } from 'react';
 import {
   AlertCircle,
   ArrowUpRight,
@@ -23,6 +13,9 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { api } from "../lib/api";
+
+const RevenueChart = React.lazy(() => import("../components/RevenueChart"));
+const InventoryChart = React.lazy(() => import("../components/InventoryChart"));
 
 const MERCHANT_ID = "00000000-0000-4000-a000-000000000000";
 
@@ -88,8 +81,10 @@ function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  async function refresh() {
-    setLoading(true);
+  async function refresh(showSkeleton = false) {
+    if (showSkeleton) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const [prods, tl, pol] = await Promise.all([
@@ -108,8 +103,11 @@ function Dashboard() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react/set-state-in-effect
-    void refresh();
+    const handle = window.setTimeout(() => {
+      void refresh(false);
+    }, 0);
+
+    return () => window.clearTimeout(handle);
   }, []);
 
   const filteredProducts = useMemo(() => {
@@ -280,7 +278,7 @@ function Dashboard() {
           <AlertCircle size={32} className="text-amber-400" />
           <h3>Data unavailable</h3>
           <p>{error}</p>
-          <button className="primary-button" onClick={() => void refresh()}>
+          <button className="primary-button" onClick={() => void refresh(true)}>
             Retry
           </button>
         </div>
@@ -361,24 +359,9 @@ function Dashboard() {
           </div>
           <div className="chart-wrap">
             {analyticsData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={analyticsData}>
-                  <defs>
-                    <linearGradient id="revenueFill" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.7} />
-                      <stop offset="95%" stopColor="#60a5fa" stopOpacity={0.08} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                  <XAxis dataKey="date" stroke="#94a3b8" tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" tickLine={false} axisLine={false} />
-                  <Tooltip
-                   formatter={(value) => [formatCurrency(Number(value ?? 0)), "Revenue"]}
-                    labelStyle={{ color: "#0f172a" }}
-                  />
-                  <Area type="monotone" dataKey="revenue" stroke="#60a5fa" fill="url(#revenueFill)" />
-                </AreaChart>
-              </ResponsiveContainer>
+              <Suspense fallback={<div className="chart-empty">Loading chart…</div>}>
+                <RevenueChart data={analyticsData} />
+              </Suspense>
             ) : (
               <div className="chart-empty">No transaction data available.</div>
             )}
@@ -395,25 +378,9 @@ function Dashboard() {
           </div>
           <div className="chart-wrap">
             {products.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={products.slice(0, 5)}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                  <XAxis dataKey="sku" stroke="#94a3b8" tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" tickLine={false} axisLine={false} />
-                  <Tooltip formatter={(value) => [Number(value ?? 0), "Units"]} />
-                  <Bar
-                    dataKey={(product: Product) =>
-                      (product.variants ?? []).reduce(
-                        (sum: number, variant: ProductVariant) =>
-                          sum + Number(variant.available_qty ?? 0),
-                        0,
-                      )
-                    }
-                    fill="#34d399"
-                    radius={[8, 8, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <Suspense fallback={<div className="chart-empty">Loading chart…</div>}>
+                <InventoryChart products={products} />
+              </Suspense>
             ) : (
               <div className="chart-empty">No inventory loaded.</div>
             )}
@@ -428,7 +395,7 @@ function Dashboard() {
               <p className="eyebrow">Catalog</p>
               <h2>Inventory management</h2>
             </div>
-            <button className="primary-button small-button" onClick={() => void refresh()}>
+            <button className="primary-button small-button" onClick={() => void refresh(true)}>
               Refresh
             </button>
           </div>
