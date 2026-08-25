@@ -1,12 +1,12 @@
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, ConfigDict
 from decimal import Decimal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CheckoutItemBase(BaseModel):
-    variant_id: str
-    quantity: int
+    variant_id: str = Field(min_length=36, max_length=36)
+    quantity: int = Field(gt=0, le=100)
 
 
 class CheckoutItemCreate(CheckoutItemBase):
@@ -22,8 +22,8 @@ class CheckoutItemResponse(CheckoutItemBase):
 
 
 class CheckoutSessionBase(BaseModel):
-    merchant_id: str
-    currency: str = "INR"
+    merchant_id: str = Field(min_length=36, max_length=36)
+    currency: str = Field(default="INR", min_length=3, max_length=3)
 
 
 class CheckoutSessionCreate(CheckoutSessionBase):
@@ -34,18 +34,18 @@ class CheckoutSessionResponse(CheckoutSessionBase):
     model_config = ConfigDict(from_attributes=True)
     id: str
     status: str
-    failure_reason: Optional[str] = None
-    total_amount: Optional[Decimal] = None
-    expires_at: Optional[datetime] = None
+    failure_reason: str | None = None
+    total_amount: Decimal | None = None
+    expires_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     items: list[CheckoutItemResponse] = []
 
 
 class PurchaseIntentBase(BaseModel):
-    max_amount: Decimal
-    currency: str = "INR"
-    allowed_category: Optional[str] = None
+    max_amount: Decimal = Field(gt=0)
+    currency: str = Field(default="INR", min_length=3, max_length=3)
+    allowed_category: str | None = None
 
 
 class PurchaseIntentCreate(PurchaseIntentBase):
@@ -57,5 +57,5 @@ class PurchaseIntentResponse(PurchaseIntentBase):
     intent_id: str
     merchant_id: str
     status: str
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     created_at: datetime

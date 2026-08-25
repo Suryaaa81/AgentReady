@@ -49,6 +49,10 @@ def _write_merchant_receipt(payment: Payment, order: Order) -> str:
         "merchant_id": order.merchant_id,
         "verified_at": payment.verified_at.isoformat() if payment.verified_at else None,
         "status": payment.status,
+        "items": [
+            {"variant_id": item.variant_id, "qty": item.quantity}
+            for item in order.checkout.items
+        ],
     }
     receipt_path.write_text(
         json.dumps(receipt_data, indent=2, ensure_ascii=False),
@@ -59,7 +63,7 @@ def _write_merchant_receipt(payment: Payment, order: Order) -> str:
 
 def create_payment_order(db: Session, checkout_id: str) -> Payment:
     checkout = db.execute(
-        select(CheckoutSession).where(CheckoutSession.id == checkout_id)
+        select(CheckoutSession).where(CheckoutSession.id == checkout_id).with_for_update()
     ).scalar_one_or_none()
     if not checkout:
         raise ValueError("Checkout not found")
@@ -100,7 +104,11 @@ def create_payment_order(db: Session, checkout_id: str) -> Payment:
                 data={
                     "amount": int(float(order.total_amount) * 100),
                     "currency": order.currency,
-                    "receipt": f"rcpt_{order.id[:12]}",
+                    "receipt": str(order.id),
+                    "notes": {
+                        "checkout_id": checkout.id,
+                        "merchant_id": checkout.merchant_id
+                    },
                     "payment_capture": 1,
                 }
             )
@@ -138,7 +146,7 @@ def verify_payment_signature(
     signature: str,
 ) -> Payment:
     payment = db.execute(
-        select(Payment).where(Payment.razorpay_order_id == rzp_order_id)
+        select(Payment).where(Payment.razorpay_order_id == rzp_order_id).with_for_update()
     ).scalar_one_or_none()
     if not payment:
         raise ValueError("Payment not found")

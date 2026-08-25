@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -29,7 +29,7 @@ class AuditEvent(Base):
         nullable=False,
         index=True,
     )
-    checkout_id: Mapped[Optional[str]] = mapped_column(
+    checkout_id: Mapped[str | None] = mapped_column(
         String(36),
         __import__("sqlalchemy").ForeignKey("checkout_sessions.id"),
         nullable=True,
@@ -39,10 +39,10 @@ class AuditEvent(Base):
     actor: Mapped[str] = mapped_column(
         String(64), nullable=False
     )  # "agent" | "merchant" | "system"
-    payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = ts_created()
 
-    merchant: Mapped["Merchant"] = relationship("Merchant", back_populates="audit_events")
-    checkout: Mapped[Optional["CheckoutSession"]] = relationship(
+    merchant: Mapped[Merchant] = relationship("Merchant", back_populates="audit_events")
+    checkout: Mapped[CheckoutSession | None] = relationship(
         "CheckoutSession", back_populates="audit_events"
     )

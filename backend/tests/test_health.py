@@ -1,4 +1,5 @@
 """Tests for GET /health endpoint."""
+
 from __future__ import annotations
 
 
@@ -8,7 +9,7 @@ def test_health_returns_200(client):
 
 
 def test_health_payload_structure(client):
-    data = response = client.get("/health").json()
+    data = client.get("/health").json()
     assert "status" in data
     assert data["status"] in ("ok", "degraded")
     assert "timestamp" in data

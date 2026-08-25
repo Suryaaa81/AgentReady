@@ -108,6 +108,7 @@ function Dashboard() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react/set-state-in-effect
     void refresh();
   }, []);
 
@@ -180,6 +181,11 @@ function Dashboard() {
     ).length;
     return Math.round((approvals / approvalEvents.length) * 100);
   }, [approvalEvents]);
+
+  const aiConversations = useMemo(
+    () => timeline.filter((event) => event.event_type === "AGENT_CONVERSATION").length,
+    [timeline],
+  );
 
   const analyticsData = useMemo(() => {
     const map = new Map<string, number>();
@@ -332,6 +338,15 @@ function Dashboard() {
           </div>
           <strong>{approvalRate}%</strong>
           <small>Policy and agent confidence</small>
+        </div>
+
+        <div className="metric-card accent-blue">
+          <div className="metric-header">
+            <span>AI Conversations</span>
+            <Sparkles size={18} />
+          </div>
+          <strong>{aiConversations}</strong>
+          <small>Agent interactions</small>
         </div>
       </section>
 

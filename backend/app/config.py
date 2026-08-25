@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +30,22 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @model_validator(mode="after")
+    def check_secrets_in_production(self) -> Settings:
+        if self.ENV.lower() == "production":
+            missing = []
+            if not self.GEMINI_API_KEY:
+                missing.append("GEMINI_API_KEY")
+            if not self.RAZORPAY_KEY_ID:
+                missing.append("RAZORPAY_KEY_ID")
+            if not self.RAZORPAY_KEY_SECRET:
+                missing.append("RAZORPAY_KEY_SECRET")
+            if not self.RAZORPAY_WEBHOOK_SECRET:
+                missing.append("RAZORPAY_WEBHOOK_SECRET")
+            if missing:
+                raise ValueError(f"Missing critical secrets in production: {', '.join(missing)}")
+        return self
 
 
 settings = Settings()

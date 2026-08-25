@@ -1,23 +1,31 @@
-from datetime import datetime, timezone
-from sqlalchemy.orm import Session
-from sqlalchemy import select
-from app.models.checkout import CheckoutSession, PurchaseIntent, CheckoutItem
-from app.models.merchant import MerchantPolicy
-from app.models.catalog import ProductVariant
+from datetime import UTC, datetime
 from typing import Literal
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.catalog import ProductVariant
+from app.models.checkout import CheckoutSession, PurchaseIntent
+from app.models.merchant import MerchantPolicy
+
 PolicyDecision = Literal["ALLOW", "REJECT", "REQUIRE_HUMAN_APPROVAL"]
+
 
 class PolicyResult:
     def __init__(self, decision: PolicyDecision, reason: str = ""):
         self.decision = decision
         self.reason = reason
 
-def evaluate_checkout_policy(db: Session, checkout: CheckoutSession, intent_id: str | None = None) -> PolicyResult:
+
+def evaluate_checkout_policy(
+    db: Session, checkout: CheckoutSession, intent_id: str | None = None
+) -> PolicyResult:
     policy = db.execute(
-        select(MerchantPolicy).where(MerchantPolicy.merchant_id == checkout.merchant_id).order_by(MerchantPolicy.created_at.desc())
+        select(MerchantPolicy)
+        .where(MerchantPolicy.merchant_id == checkout.merchant_id)
+        .order_by(MerchantPolicy.created_at.desc())
     ).scalar_one_or_none()
-    
+
     if not policy:
         return PolicyResult("REQUIRE_HUMAN_APPROVAL", "No merchant policy configured")
 
@@ -29,7 +37,9 @@ def evaluate_checkout_policy(db: Session, checkout: CheckoutSession, intent_id: 
     if policy.allowed_categories:
         # Check if all items belong to allowed categories
         for item in checkout.items:
-            variant = db.execute(select(ProductVariant).where(ProductVariant.id == item.variant_id)).scalar_one()
+            variant = db.execute(
+                select(ProductVariant).where(ProductVariant.id == item.variant_id)
+            ).scalar_one()
             if variant.product.category not in policy.allowed_categories:
                 return PolicyResult("REJECT", f"Category '{variant.product.category}' not allowed")
 
@@ -37,7 +47,9 @@ def evaluate_checkout_policy(db: Session, checkout: CheckoutSession, intent_id: 
 
     # Intent validation (AP2 bounded authorization)
     if intent_id:
-        intent = db.execute(select(PurchaseIntent).where(PurchaseIntent.intent_id == intent_id)).scalar_one_or_none()
+        intent = db.execute(
+            select(PurchaseIntent).where(PurchaseIntent.intent_id == intent_id)
+        ).scalar_one_or_none()
         if not intent:
             return PolicyResult("REJECT", "Invalid purchase intent")
         if intent.status != "ACTIVE":
@@ -45,8 +57,8 @@ def evaluate_checkout_policy(db: Session, checkout: CheckoutSession, intent_id: 
         if intent.expires_at:
             expires_at = intent.expires_at
             if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-            if expires_at < datetime.now(timezone.utc):
+                expires_at = expires_at.replace(tzinfo=UTC)
+            if expires_at < datetime.now(UTC):
                 return PolicyResult("REJECT", "Purchase intent expired")
         if amount > intent.max_amount:
             return PolicyResult("REJECT", "Amount exceeds authorized intent")
@@ -54,9 +66,13 @@ def evaluate_checkout_policy(db: Session, checkout: CheckoutSession, intent_id: 
             return PolicyResult("REJECT", "Intent currency mismatch")
         if intent.allowed_category:
             for item in checkout.items:
-                variant = db.execute(select(ProductVariant).where(ProductVariant.id == item.variant_id)).scalar_one()
+                variant = db.execute(
+                    select(ProductVariant).where(ProductVariant.id == item.variant_id)
+                ).scalar_one()
                 if variant.product.category != intent.allowed_category:
-                    return PolicyResult("REJECT", f"Intent category mismatch for '{variant.product.category}'")
+                    return PolicyResult(
+                        "REJECT", f"Intent category mismatch for '{variant.product.category}'"
+                    )
 
     # Threshold checks
     if amount <= policy.max_autonomous_amount:
