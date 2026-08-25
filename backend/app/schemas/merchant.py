@@ -1,18 +1,18 @@
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field
 from decimal import Decimal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MerchantPolicyBase(BaseModel):
-    max_autonomous_amount: Decimal
-    currency: str = "INR"
-    daily_limit: Decimal
-    allowed_categories: Optional[list[str]] = None
-    max_delivery_days: Optional[int] = None
-    min_return_days: Optional[int] = None
-    approval_threshold: Optional[Decimal] = None
-    expires_at: Optional[datetime] = None
+    max_autonomous_amount: Decimal = Field(ge=0)
+    currency: str = Field(default="INR", min_length=3, max_length=3)
+    daily_limit: Decimal = Field(ge=0)
+    allowed_categories: list[str] | None = None
+    max_delivery_days: int | None = Field(default=None, ge=0)
+    min_return_days: int | None = Field(default=None, ge=0)
+    approval_threshold: Decimal | None = None
+    expires_at: datetime | None = None
 
 
 class MerchantPolicyCreate(MerchantPolicyBase):

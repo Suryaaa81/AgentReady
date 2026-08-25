@@ -5,8 +5,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.schemas.audit import AuditEventCreate
 from app.schemas.checkout import CheckoutItemCreate, CheckoutSessionCreate
-from app.services import catalog, checkout, policy
+from app.services import audit, catalog, checkout, policy
 
 try:
     from google import genai
@@ -71,18 +72,58 @@ def check_inventory(db: Session, merchant_id: str, variant_id: str):
 def create_checkout(db: Session, merchant_id: str, items: list):
     session_in = CheckoutSessionCreate(
         merchant_id=merchant_id,
-        items=[CheckoutItemCreate(variant_id=item["variant_id"], quantity=item["quantity"]) for item in items],
+        items=[
+            CheckoutItemCreate(variant_id=item["variant_id"], quantity=item["quantity"])
+            for item in items
+        ],
         currency="INR",
     )
     session = checkout.create_checkout(db, merchant_id, session_in)
-    return {"checkout_id": session.id, "status": session.status, "total_amount": float(session.total_amount)}
+    return {
+        "checkout_id": session.id,
+        "status": session.status,
+        "total_amount": float(session.total_amount),
+    }
 
 
 def get_checkout(db: Session, merchant_id: str, checkout_id: str):
     session = checkout.get_checkout(db, checkout_id)
     if session:
-        return {"checkout_id": session.id, "status": session.status, "total_amount": float(session.total_amount)}
+        return {
+            "checkout_id": session.id,
+            "status": session.status,
+            "total_amount": float(session.total_amount),
+        }
     return None
+
+
+def update_checkout(
+    db: Session,
+    merchant_id: str,
+    checkout_id: str,
+    status: str,
+    failure_reason: str = None,
+):
+    try:
+        session = checkout.update_checkout_status(db, checkout_id, status, failure_reason)
+        return {
+            "checkout_id": session.id,
+            "status": session.status,
+            "failure_reason": session.failure_reason,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def cancel_checkout(db: Session, merchant_id: str, checkout_id: str):
+    try:
+        session = checkout.update_checkout_status(db, checkout_id, "CANCELLED")
+        return {
+            "checkout_id": session.id,
+            "status": session.status,
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def request_payment(db: Session, merchant_id: str, checkout_id: str):
@@ -139,6 +180,8 @@ TOOLS = {
     "get_return_policy": get_return_policy,
     "create_checkout": create_checkout,
     "get_checkout": get_checkout,
+    "update_checkout": update_checkout,
+    "cancel_checkout": cancel_checkout,
     "request_payment": request_payment,
     "get_payment_status": get_payment_status,
     "get_transaction_audit": get_transaction_audit,
@@ -210,6 +253,28 @@ def _gemini_tool_declarations():
         types.FunctionDeclaration(
             name="get_checkout",
             description="Fetch the current state of a checkout session.",
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={"checkout_id": types.Schema(type=types.Type.STRING)},
+                required=["checkout_id"],
+            ),
+        ),
+        types.FunctionDeclaration(
+            name="update_checkout",
+            description="Update the state of a checkout session (e.g. READY to AUTHORIZED).",
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "checkout_id": types.Schema(type=types.Type.STRING),
+                    "status": types.Schema(type=types.Type.STRING),
+                    "failure_reason": types.Schema(type=types.Type.STRING),
+                },
+                required=["checkout_id", "status"],
+            ),
+        ),
+        types.FunctionDeclaration(
+            name="cancel_checkout",
+            description="Cancel an existing checkout session.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={"checkout_id": types.Schema(type=types.Type.STRING)},
@@ -313,7 +378,11 @@ def handle_chat(db: Session, merchant_id: str, messages: list):
         return "Gemini API key not set. Please configure GEMINI_API_KEY.", []
 
     if genai is None or types is None:
-        return "google-genai SDK is not installed. Install google-genai to enable native Gemini function calling.", []
+        return (
+            "google-genai SDK is not installed. "
+            "Install google-genai to enable native Gemini function calling.",
+            [],
+        )
 
     model = getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")
     tools_config = types.GenerateContentConfig(
@@ -323,6 +392,17 @@ def handle_chat(db: Session, merchant_id: str, messages: list):
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         contents = _to_gemini_contents(messages)
+        
+        audit.log_event(
+            db,
+            merchant_id,
+            AuditEventCreate(
+                event_type="AGENT_CONVERSATION",
+                actor="user",
+                payload={"messages_count": len(messages)},
+            )
+        )
+
         response = client.models.generate_content(
             model=model,
             contents=contents,

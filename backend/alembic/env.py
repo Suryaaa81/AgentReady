@@ -1,20 +1,20 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
+import app.models  # noqa: F401 — triggers all model imports via __init__.py
 from alembic import context
 
 # ── Import all models so Alembic autogenerate can see them ────────────────────
 # This must happen before target_metadata is set.
 from app.database import Base  # noqa: F401
-import app.models  # noqa: F401 — triggers all model imports via __init__.py
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
 # Override sqlalchemy.url from environment variable if set
-import os
 
 database_url = os.environ.get("DATABASE_URL")
 if database_url:

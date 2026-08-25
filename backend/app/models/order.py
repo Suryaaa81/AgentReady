@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -37,11 +37,9 @@ class Order(Base):
     created_at: Mapped[datetime] = ts_created()
     updated_at: Mapped[datetime] = ts_updated()
 
-    checkout: Mapped["CheckoutSession"] = relationship("CheckoutSession", back_populates="order")
-    merchant: Mapped["Merchant"] = relationship("Merchant", back_populates="orders")
-    payment: Mapped[Optional["Payment"]] = relationship(
-        "Payment", back_populates="order", uselist=False
-    )
+    checkout: Mapped[CheckoutSession] = relationship("CheckoutSession", back_populates="order")
+    merchant: Mapped[Merchant] = relationship("Merchant", back_populates="orders")
+    payment: Mapped[Payment | None] = relationship("Payment", back_populates="order", uselist=False)
 
 
 class Payment(Base):
@@ -60,15 +58,15 @@ class Payment(Base):
         nullable=False,
         index=True,
     )
-    razorpay_order_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
-    razorpay_payment_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    razorpay_order_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    razorpay_payment_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="PENDING", index=True
     )  # PENDING | CAPTURED | FAILED | REFUNDED
     amount: Mapped[Numeric] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
-    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = ts_created()
     updated_at: Mapped[datetime] = ts_updated()
 
-    order: Mapped["Order"] = relationship("Order", back_populates="payment")
+    order: Mapped[Order] = relationship("Order", back_populates="payment")

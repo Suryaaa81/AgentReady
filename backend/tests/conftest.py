@@ -2,6 +2,7 @@
 pytest fixtures for backend tests.
 Uses SQLite in-memory so tests require zero external dependencies.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -59,9 +60,11 @@ def client(db):
         yield c
     app.dependency_overrides.clear()
 
+
 @pytest.fixture
 def merchant(db):
     from app.models.merchant import Merchant
+
     m = Merchant(name="Test Merchant", email="test@example.com")
     db.add(m)
     db.commit()

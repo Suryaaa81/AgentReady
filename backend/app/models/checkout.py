@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -32,23 +32,19 @@ class CheckoutSession(Base):
         index=True,
     )
     status: Mapped[str] = mapped_column(String(64), nullable=False, default="CREATED", index=True)
-    failure_reason: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
-    total_amount: Mapped[Optional[Numeric]] = mapped_column(Numeric(12, 2), nullable=True)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    total_amount: Mapped[Numeric | None] = mapped_column(Numeric(12, 2), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = ts_created()
     updated_at: Mapped[datetime] = ts_updated()
 
-    merchant: Mapped["Merchant"] = relationship("Merchant", back_populates="checkout_sessions")
-    items: Mapped[list["CheckoutItem"]] = relationship(
+    merchant: Mapped[Merchant] = relationship("Merchant", back_populates="checkout_sessions")
+    items: Mapped[list[CheckoutItem]] = relationship(
         "CheckoutItem", back_populates="checkout", cascade="all, delete-orphan"
     )
-    order: Mapped[Optional["Order"]] = relationship(
-        "Order", back_populates="checkout", uselist=False
-    )
-    audit_events: Mapped[list["AuditEvent"]] = relationship(
-        "AuditEvent", back_populates="checkout"
-    )
+    order: Mapped[Order | None] = relationship("Order", back_populates="checkout", uselist=False)
+    audit_events: Mapped[list[AuditEvent]] = relationship("AuditEvent", back_populates="checkout")
 
 
 class CheckoutItem(Base):
@@ -73,7 +69,7 @@ class CheckoutItem(Base):
     unit_price: Mapped[Numeric] = mapped_column(Numeric(12, 2), nullable=False)  # snapshot
     created_at: Mapped[datetime] = ts_created()
 
-    checkout: Mapped["CheckoutSession"] = relationship("CheckoutSession", back_populates="items")
+    checkout: Mapped[CheckoutSession] = relationship("CheckoutSession", back_populates="items")
 
 
 class PurchaseIntent(Base):
@@ -93,11 +89,11 @@ class PurchaseIntent(Base):
     )
     max_amount: Mapped[Numeric] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
-    allowed_category: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    allowed_category: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="ACTIVE", index=True
     )  # ACTIVE | CONSUMED | EXPIRED
     created_at: Mapped[datetime] = ts_created()
 
-    merchant: Mapped["Merchant"] = relationship("Merchant", back_populates="purchase_intents")
+    merchant: Mapped[Merchant] = relationship("Merchant", back_populates="purchase_intents")

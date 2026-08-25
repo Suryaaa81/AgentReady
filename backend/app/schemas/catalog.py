@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, ConfigDict
 from decimal import Decimal
+
+from pydantic import BaseModel, ConfigDict
 
 
 class InventoryBase(BaseModel):
@@ -18,8 +18,8 @@ class InventoryResponse(InventoryBase):
 
 class ProductVariantBase(BaseModel):
     sku: str
-    attributes: Optional[dict] = None
-    price_override: Optional[Decimal] = None
+    attributes: dict | None = None
+    price_override: Decimal | None = None
 
 
 class ProductVariantCreate(ProductVariantBase):
@@ -31,14 +31,14 @@ class ProductVariantResponse(ProductVariantBase):
     id: str
     product_id: str
     created_at: datetime
-    inventory: Optional[InventoryResponse] = None
+    inventory: InventoryResponse | None = None
 
 
 class ProductBase(BaseModel):
     sku: str
     name: str
-    description: Optional[str] = None
-    category: Optional[str] = None
+    description: str | None = None
+    category: str | None = None
     base_price: Decimal
     currency: str = "INR"
     is_active: bool = True

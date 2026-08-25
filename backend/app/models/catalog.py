@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, Boolean, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -26,16 +26,16 @@ class Product(Base):
     )
     sku: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(512), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    category: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     base_price: Mapped[Numeric] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = ts_created()
     updated_at: Mapped[datetime] = ts_updated()
 
-    merchant: Mapped["Merchant"] = relationship("Merchant", back_populates="products")
-    variants: Mapped[list["ProductVariant"]] = relationship(
+    merchant: Mapped[Merchant] = relationship("Merchant", back_populates="products")
+    variants: Mapped[list[ProductVariant]] = relationship(
         "ProductVariant", back_populates="product", cascade="all, delete-orphan"
     )
 
@@ -51,12 +51,14 @@ class ProductVariant(Base):
         index=True,
     )
     sku: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
-    attributes: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # {"size": "M", "color": "red"}
-    price_override: Mapped[Optional[Numeric]] = mapped_column(Numeric(12, 2), nullable=True)
+    attributes: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True
+    )  # {"size": "M", "color": "red"}
+    price_override: Mapped[Numeric | None] = mapped_column(Numeric(12, 2), nullable=True)
     created_at: Mapped[datetime] = ts_created()
 
-    product: Mapped["Product"] = relationship("Product", back_populates="variants")
-    inventory: Mapped[Optional["Inventory"]] = relationship(
+    product: Mapped[Product] = relationship("Product", back_populates="variants")
+    inventory: Mapped[Inventory | None] = relationship(
         "Inventory", back_populates="variant", uselist=False
     )
 
@@ -76,4 +78,4 @@ class Inventory(Base):
     reserved_qty: Mapped[int] = mapped_column(nullable=False, default=0)
     updated_at: Mapped[datetime] = ts_updated()
 
-    variant: Mapped["ProductVariant"] = relationship("ProductVariant", back_populates="inventory")
+    variant: Mapped[ProductVariant] = relationship("ProductVariant", back_populates="inventory")
