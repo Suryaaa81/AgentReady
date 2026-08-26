@@ -412,7 +412,8 @@ def handle_chat(db: Session, merchant_id: str, messages: list):
         return f"Gemini API call failed: {exc}", []
 
     executed: list[dict[str, Any]] = []
-    while True:
+    max_tool_rounds = getattr(settings, "MAX_AGENT_TOOL_ROUNDS", 8)
+    for _round in range(max_tool_rounds):
         calls = _extract_function_calls(response)
         if not calls:
             break
@@ -454,5 +455,11 @@ def handle_chat(db: Session, merchant_id: str, messages: list):
 
     final_reply = _extract_text(response)
     if not final_reply:
-        final_reply = "I couldn’t determine a response from Gemini."
+        if _extract_function_calls(response):
+            final_reply = (
+                "I wasn't able to finish this request within the allowed number of "
+                "tool calls. Please narrow your request or try again."
+            )
+        else:
+            final_reply = "I couldn’t determine a response from Gemini."
     return final_reply, executed

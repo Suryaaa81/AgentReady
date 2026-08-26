@@ -191,7 +191,7 @@ def verify_payment_signature(
     payment.order.status = "COMPLETED"
     payment.order.checkout.status = "COMPLETED"
 
-    _write_merchant_receipt(payment, payment.order)
+    receipt_path = _write_merchant_receipt(payment, payment.order)
     db.commit()
     db.refresh(payment)
 
@@ -205,7 +205,7 @@ def verify_payment_signature(
                 "payment_id": payment.id,
                 "razorpay_payment_id": rzp_payment_id,
                 "amount": float(payment.amount),
-                "receipt": _write_merchant_receipt(payment, payment.order),
+                "receipt": receipt_path,
             },
         ),
         checkout_id=payment.order.checkout_id,

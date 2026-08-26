@@ -1,14 +1,34 @@
 from datetime import UTC, datetime
 from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.catalog import ProductVariant
 from app.models.checkout import CheckoutSession, PurchaseIntent
 from app.models.merchant import MerchantPolicy
+from app.models.order import Order
 
 PolicyDecision = Literal["ALLOW", "REJECT", "REQUIRE_HUMAN_APPROVAL"]
+
+
+def _spent_today(db: Session, merchant_id: str) -> float:
+    """Sum of COMPLETED order totals for this merchant since UTC midnight.
+
+    Used to enforce MerchantPolicy.daily_limit. Without this, an agent can
+    legally split one large purchase into N smaller checkouts that each
+    individually clear max_autonomous_amount/approval_threshold — the
+    daily_limit column existed on the model but was never read anywhere.
+    """
+    day_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    total = db.execute(
+        select(func.coalesce(func.sum(Order.total_amount), 0)).where(
+            Order.merchant_id == merchant_id,
+            Order.status == "COMPLETED",
+            Order.created_at >= day_start,
+        )
+    ).scalar_one()
+    return float(total or 0)
 
 
 class PolicyResult:
@@ -73,6 +93,17 @@ def evaluate_checkout_policy(
                     return PolicyResult(
                         "REJECT", f"Intent category mismatch for '{variant.product.category}'"
                     )
+
+    # Daily limit check — blocks structuring (splitting one purchase into
+    # several under-threshold checkouts across the same day).
+    if policy.daily_limit is not None:
+        spent_today = _spent_today(db, checkout.merchant_id)
+        if spent_today + float(amount) > float(policy.daily_limit):
+            return PolicyResult(
+                "REJECT",
+                f"Daily spend limit exceeded (spent {spent_today:.2f} + "
+                f"{float(amount):.2f} > limit {float(policy.daily_limit):.2f})",
+            )
 
     # Threshold checks
     if amount <= policy.max_autonomous_amount:
