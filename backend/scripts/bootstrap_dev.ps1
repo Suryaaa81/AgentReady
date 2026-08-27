@@ -26,6 +26,7 @@ GEMINI_API_KEY=
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
+PAYMENT_PROVIDER=mock
 "@ | Set-Content -Path $backendEnv -Encoding ascii
 
     Write-Host "Seeding demo merchant and catalog..."

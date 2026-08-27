@@ -58,10 +58,14 @@ def authorize_checkout_session(
     if not session_obj:
         raise HTTPException(status_code=404, detail="Checkout session not found")
 
-    if session_obj.status != "READY":
+    if session_obj.status not in ("READY", "AUTHORIZATION_REQUIRED"):
         raise HTTPException(
-            status_code=400, detail=f"Checkout is in {session_obj.status} state, not READY"
+            status_code=400,
+            detail=f"Checkout is in {session_obj.status} state, not authorizable",
         )
+
+    if session_obj.status == "AUTHORIZATION_REQUIRED":
+        return checkout.update_checkout_status(db, checkout_id, "AUTHORIZED")
 
     result = policy_engine.evaluate_checkout_policy(db, session_obj, intent_id)
 

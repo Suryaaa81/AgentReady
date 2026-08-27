@@ -129,7 +129,7 @@ def cancel_checkout(db: Session, merchant_id: str, checkout_id: str):
 def request_payment(db: Session, merchant_id: str, checkout_id: str):
     from app.services import payment
 
-    pay = payment.create_payment_order(db, checkout_id)
+    pay = payment.create_payment_order(db, checkout_id, merchant_id)
     return {
         "payment_id": pay.id,
         "razorpay_order_id": pay.razorpay_order_id,

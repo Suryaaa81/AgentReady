@@ -2,11 +2,19 @@
 
 > Merchant-side agentic-commerce gateway — turns a merchant's catalog, inventory, and policies into an AI-accessible, policy-gated, auditable commerce interface with Razorpay payment execution.
 
-**Status:** ruff clean · mypy clean (0 errors) · 21/21 backend tests passing · frontend build & lint clean. Full writeup: [FINAL_BUILDATHON_REPORT.md](FINAL_BUILDATHON_REPORT.md).
+**Status:** ruff clean · mypy clean (0 errors) · 26/26 backend tests passing · frontend build & lint clean. Full writeup: [FINAL_BUILDATHON_REPORT.md](FINAL_BUILDATHON_REPORT.md).
 
 ## Problem
 
 AI buyers (agents) need a structured, bounded, auditable way to browse merchant catalogs, verify inventory/pricing/policies, and complete purchases — without trusting the agent with money or state mutation. AgentReady provides that interface.
+
+## Judge Quick Read
+
+- **Track:** AI Growth & Agentic Commerce
+- **Product:** A merchant gateway that makes catalog, policy, inventory, checkout, and Razorpay payments safe for AI buyers
+- **Differentiator:** The model selects typed tools; the backend alone decides price, stock, policy, payment, and state
+- **Proof:** 26 automated backend tests, clean Ruff/mypy/frontend gates, authenticated payment actions, durable audit receipts, and an explicit stockout failure path
+- **Best demo:** Ask for a product, trigger a policy decision, show the reserved inventory, then force a stockout and show the rejected payment plus audit event
 
 ## Protocol Positioning
 
@@ -116,6 +124,7 @@ For macOS/Linux, use `cp` instead of `Copy-Item` and
 | `RAZORPAY_KEY_ID` | backend `.env` | Razorpay Test Mode key ID |
 | `RAZORPAY_KEY_SECRET` | backend `.env` | Razorpay Test Mode secret |
 | `RAZORPAY_WEBHOOK_SECRET` | backend `.env` | Razorpay webhook verification secret |
+| `PAYMENT_PROVIDER` | backend `.env` | `mock` for local development; `razorpay` is required in production |
 | `VITE_API_URL` | frontend `.env` / Vercel | Backend base URL |
 | `VITE_MERCHANT_API_KEY` | frontend `.env` / Vercel | Merchant API key from `POST /merchant/register` or `seed_demo.py` |
 

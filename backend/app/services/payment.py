@@ -1,9 +1,7 @@
 import hashlib
 import hmac
-import json
 import os
 from datetime import UTC, datetime
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -35,11 +33,8 @@ def _get_razorpay_client():
     return razorpay.Client(auth=(key_id, key_secret))
 
 
-def _write_merchant_receipt(payment: Payment, order: Order) -> str:
-    receipts_dir = Path(__file__).resolve().parents[2] / "receipts"
-    receipts_dir.mkdir(exist_ok=True)
-    receipt_path = receipts_dir / f"receipt_{payment.id}.json"
-    receipt_data = {
+def _build_receipt(payment: Payment, order: Order) -> dict:
+    return {
         "payment_id": payment.id,
         "order_id": order.id,
         "razorpay_order_id": payment.razorpay_order_id,
@@ -54,19 +49,16 @@ def _write_merchant_receipt(payment: Payment, order: Order) -> str:
             for item in order.checkout.items
         ],
     }
-    receipt_path.write_text(
-        json.dumps(receipt_data, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
-    return str(receipt_path)
 
 
-def create_payment_order(db: Session, checkout_id: str) -> Payment:
+def create_payment_order(db: Session, checkout_id: str, merchant_id: str | None = None) -> Payment:
     checkout = db.execute(
         select(CheckoutSession).where(CheckoutSession.id == checkout_id).with_for_update()
     ).scalar_one_or_none()
     if not checkout:
         raise ValueError("Checkout not found")
+    if merchant_id is not None and checkout.merchant_id != merchant_id:
+        raise ValueError("Checkout does not belong to this merchant")
     if checkout.status != "AUTHORIZED":
         raise ValueError(f"Checkout is in {checkout.status} state, must be AUTHORIZED")
 
@@ -98,6 +90,9 @@ def create_payment_order(db: Session, checkout_id: str) -> Payment:
 
     rzp_order_id = f"order_{order.id[:18]}"
     client = _get_razorpay_client()
+    if client is None and settings.PAYMENT_PROVIDER.lower() != "mock":
+        db.rollback()
+        raise ValueError("Razorpay credentials are not configured")
     if client is not None:
         try:
             response = client.order.create(
@@ -113,8 +108,9 @@ def create_payment_order(db: Session, checkout_id: str) -> Payment:
                 }
             )
             rzp_order_id = response.get("id") or rzp_order_id
-        except Exception:
-            rzp_order_id = f"order_{order.id[:18]}"
+        except Exception as exc:
+            db.rollback()
+            raise ValueError(f"Razorpay order creation failed: {exc}") from exc
 
     payment.razorpay_order_id = rzp_order_id
     checkout.status = "PAYMENT_PENDING"
@@ -144,12 +140,15 @@ def verify_payment_signature(
     rzp_order_id: str,
     rzp_payment_id: str,
     signature: str,
+    merchant_id: str | None = None,
 ) -> Payment:
     payment = db.execute(
         select(Payment).where(Payment.razorpay_order_id == rzp_order_id).with_for_update()
     ).scalar_one_or_none()
     if not payment:
         raise ValueError("Payment not found")
+    if merchant_id is not None and payment.order.merchant_id != merchant_id:
+        raise ValueError("Payment does not belong to this merchant")
 
     # Idempotency: do not trust a duplicated client payload or re-verify a completed payment.
     if payment.status == "COMPLETED":
@@ -191,7 +190,8 @@ def verify_payment_signature(
     payment.order.status = "COMPLETED"
     payment.order.checkout.status = "COMPLETED"
 
-    receipt_path = _write_merchant_receipt(payment, payment.order)
+    receipt_data = _build_receipt(payment, payment.order)
+    payment.receipt_data = receipt_data
     db.commit()
     db.refresh(payment)
 
@@ -205,7 +205,7 @@ def verify_payment_signature(
                 "payment_id": payment.id,
                 "razorpay_payment_id": rzp_payment_id,
                 "amount": float(payment.amount),
-                "receipt": receipt_path,
+                "receipt": receipt_data,
             },
         ),
         checkout_id=payment.order.checkout_id,

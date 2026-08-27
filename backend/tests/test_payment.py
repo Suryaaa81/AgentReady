@@ -54,3 +54,31 @@ HAT,Cap,Hats,500.00,HAT-M,10"""
 
     db.refresh(checkout_session)
     assert checkout_session.status == "COMPLETED"
+    db.refresh(verified_pay)
+    assert verified_pay.receipt_data is not None
+    assert verified_pay.receipt_data["order_id"] == pay.order_id
+
+
+def test_production_payment_fails_closed_without_razorpay(monkeypatch, db, merchant):
+    monkeypatch.setattr(settings, "ENV", "production")
+    monkeypatch.setattr(settings, "PAYMENT_PROVIDER", "razorpay")
+    monkeypatch.delenv("RAZORPAY_KEY_ID", raising=False)
+    monkeypatch.delenv("RAZORPAY_KEY_SECRET", raising=False)
+
+    csv = """sku,name,category,base_price,variant_sku,inventory_available
+HAT-2,Cap,Hats,500.00,HAT-2-M,10"""
+    catalog.import_catalog_csv(db, merchant.id, csv)
+    variant_id = catalog.get_products(db, merchant.id)[0].variants[0].id
+    checkout_session = checkout.create_checkout(
+        db,
+        merchant.id,
+        CheckoutSessionCreate(items=[CheckoutItemCreate(variant_id=variant_id, quantity=1)]),
+    )
+    checkout.update_checkout_status(db, checkout_session.id, "AUTHORIZED")
+
+    try:
+        payment.create_payment_order(db, checkout_session.id, merchant.id)
+    except ValueError as exc:
+        assert "credentials" in str(exc)
+    else:
+        raise AssertionError("production must not create synthetic Razorpay orders")

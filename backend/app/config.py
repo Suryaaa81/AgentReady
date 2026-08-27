@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
+    PAYMENT_PROVIDER: str = "mock"
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -42,6 +43,8 @@ class Settings(BaseSettings):
     def check_secrets_in_production(self) -> Settings:
         if self.ENV.lower() == "production":
             missing = []
+            if self.PAYMENT_PROVIDER.lower() != "razorpay":
+                missing.append("PAYMENT_PROVIDER=razorpay")
             if not self.GEMINI_API_KEY:
                 missing.append("GEMINI_API_KEY")
             if not self.RAZORPAY_KEY_ID:

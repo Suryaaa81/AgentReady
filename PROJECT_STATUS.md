@@ -8,9 +8,9 @@ configuration and live URLs still need verification before submission.
 
 | Gate | Result |
 |---|---|
-| `pytest` (backend) | 21/21 passing |
+| `pytest` (backend) | 26/26 passing |
 | `ruff check .` (backend) | clean |
-| `mypy .` (backend) | clean — 0 errors across 50 source files |
+| `mypy .` (backend) | clean — 0 errors across 51 source files |
 | `npm run build` (frontend) | clean |
 | `npm run lint` (frontend) | clean |
 | End-to-end smoke test | verified against a live server + seeded SQLite DB: auth rejection (401/422), authenticated catalog fetch, policy fetch, checkout creation with correct inventory reservation |
@@ -28,6 +28,8 @@ cd ../frontend && npm run build && npm run lint
 - Checkout state machine (`CREATED → READY → AUTHORIZED/AUTHORIZATION_REQUIRED/FAILED → PAYMENT_PENDING → COMPLETED`, plus `EXPIRED`/`CANCELLED`)
 - Policy engine: per-order threshold, daily spend limit (enforced against actual completed spend, not just per-order), category allowlist, AP2-style bounded purchase intents
 - Razorpay Test Mode integration: server-side order creation, idempotent verification, constant-time HMAC signature check, row-locked payment records
+- Payment actions require merchant authentication and production Razorpay failures fail closed; verified receipts are persisted with the payment record
+- Payment provider mode is explicit: local bootstrap uses `mock`; production startup requires `PAYMENT_PROVIDER=razorpay`
 - Gemini native function-calling agent, typed tool dispatch, capped tool-call loop (`MAX_AGENT_TOOL_ROUNDS`)
 - Merchant API-key authentication (`POST /merchant/register`, `X-API-Key` on every merchant-scoped route) — see [docs/architecture.md](docs/architecture.md#authentication)
 - Idempotent demo bootstrap: `backend/scripts/seed_demo.py` creates a merchant, default policy, sample catalog, and prints a usable API key

@@ -186,6 +186,7 @@ Side states reachable from most states:
 | status | VARCHAR | |
 | amount | NUMERIC(12,2) | |
 | currency | VARCHAR(3) | |
+| receipt_data | JSONB | durable verified receipt snapshot |
 | verified_at | TIMESTAMPTZ | nullable |
 | created_at | TIMESTAMPTZ | |
 | updated_at | TIMESTAMPTZ | |
@@ -248,8 +249,8 @@ merchant's own key.
 - `POST /agent/chat` — auth required; Gemini function-calling loop, capped at `MAX_AGENT_TOOL_ROUNDS` (default 8)
 
 ### Payment
-- `POST /payment/order`
-- `POST /payment/verify` — HMAC-SHA256 signature check, constant-time compare, row-locked
+- `POST /payment/order` — auth required; creates a Razorpay Test Mode order
+- `POST /payment/verify` — auth required; HMAC-SHA256 signature check, constant-time compare, row-locked
 
 ### Audit
 - `GET /audit/merchant` — auth required
@@ -269,6 +270,6 @@ Production deployments use PostgreSQL and Alembic migrations instead.
 - **Payments**: Razorpay Test Mode order creation, idempotent verification, HMAC signature check.
 - **Audit**: immutable event log tied to every state transition.
 - **Auth**: merchant registration, hashed API keys, `X-API-Key` dependency on every merchant-scoped route.
-- **Quality gates**: ruff clean, mypy clean (0 errors across 50 source files), 21/21 backend tests passing, frontend build + lint clean.
+- **Quality gates**: ruff clean, mypy clean (0 errors across 51 source files), 26/26 backend tests passing, frontend build + lint clean.
 - **Bootstrap**: `backend/scripts/seed_demo.py` — idempotent demo merchant + sample catalog for any fresh database.
 - **Phase 8-9**: Demo data, E2E Testing, Polish (Implemented).

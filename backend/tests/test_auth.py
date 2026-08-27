@@ -82,3 +82,17 @@ def test_api_key_cannot_impersonate_another_merchant(client, db):
     assert resp.status_code == 200
     assert resp.json()["merchant_id"] == m1.id
     assert float(resp.json()["max_autonomous_amount"]) == 500.0
+
+
+def test_payment_routes_require_merchant_auth(client):
+    payment_payload = {
+        "checkout_id": "not-a-real-checkout",
+    }
+    verify_payload = {
+        "razorpay_order_id": "order_test",
+        "razorpay_payment_id": "pay_test",
+        "razorpay_signature": "signature",
+    }
+
+    assert client.post("/payment/order", json=payment_payload).status_code == 422
+    assert client.post("/payment/verify", json=verify_payload).status_code == 422

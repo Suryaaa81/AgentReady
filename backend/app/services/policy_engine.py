@@ -72,6 +72,8 @@ def evaluate_checkout_policy(
         ).scalar_one_or_none()
         if not intent:
             return PolicyResult("REJECT", "Invalid purchase intent")
+        if intent.merchant_id != checkout.merchant_id:
+            return PolicyResult("REJECT", "Purchase intent belongs to another merchant")
         if intent.status != "ACTIVE":
             return PolicyResult("REJECT", f"Purchase intent is {intent.status}")
         if intent.expires_at:

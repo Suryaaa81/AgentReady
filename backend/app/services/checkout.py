@@ -10,6 +10,18 @@ from app.schemas.audit import AuditEventCreate
 from app.schemas.checkout import CheckoutSessionCreate, PurchaseIntentCreate
 from app.services.audit import log_event
 
+ALLOWED_TRANSITIONS: dict[str, set[str]] = {
+    "CREATED": {"READY", "CANCELLED", "EXPIRED", "FAILED"},
+    "READY": {"AUTHORIZED", "AUTHORIZATION_REQUIRED", "CANCELLED", "EXPIRED", "FAILED"},
+    "AUTHORIZATION_REQUIRED": {"AUTHORIZED", "CANCELLED", "EXPIRED", "FAILED"},
+    "AUTHORIZED": {"PAYMENT_PENDING", "CANCELLED", "EXPIRED", "FAILED"},
+    "PAYMENT_PENDING": {"COMPLETED", "CANCELLED", "EXPIRED", "FAILED"},
+    "COMPLETED": set(),
+    "CANCELLED": set(),
+    "EXPIRED": set(),
+    "FAILED": set(),
+}
+
 
 def create_checkout(
     db: Session, merchant_id: str, checkout_in: CheckoutSessionCreate
@@ -96,6 +108,8 @@ def update_checkout_status(
 
     if not session_obj:
         raise ValueError(f"Checkout {checkout_id} not found")
+    if status not in ALLOWED_TRANSITIONS.get(session_obj.status, set()):
+        raise ValueError(f"Invalid checkout transition: {session_obj.status} -> {status}")
 
     session_obj.status = status
     if failure_reason:

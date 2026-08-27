@@ -152,3 +152,33 @@ HAT,Cap,Hats,500.00,HAT-S,10"""
     res = policy_engine.evaluate_checkout_policy(db, checkout_session, intent.intent_id)
     assert res.decision == "REJECT"
     assert "Amount exceeds authorized intent" in res.reason
+
+
+def test_policy_engine_rejects_cross_merchant_intent(db, merchant):
+    from app.services import merchant as merchant_service
+    from app.services.policy import upsert_policy
+
+    csv = """sku,name,category,base_price,variant_sku,inventory_available
+HAT-2,Cap,Hats,500.00,HAT-2-M,10"""
+    catalog.import_catalog_csv(db, merchant.id, csv)
+    variant_id = catalog.get_products(db, merchant.id)[0].variants[0].id
+    upsert_policy(
+        db,
+        merchant.id,
+        MerchantPolicyCreate(max_autonomous_amount=1000, daily_limit=10000),
+    )
+    checkout_session = checkout.create_checkout(
+        db,
+        merchant.id,
+        CheckoutSessionCreate(items=[CheckoutItemCreate(variant_id=variant_id, quantity=1)]),
+    )
+
+    other_merchant, _ = merchant_service.create_merchant(db, "Other Shop", "other@example.com")
+    intent = checkout.create_intent(
+        db, other_merchant.id, PurchaseIntentCreate(max_amount=1000, currency="INR")
+    )
+
+    result = policy_engine.evaluate_checkout_policy(db, checkout_session, intent.intent_id)
+
+    assert result.decision == "REJECT"
+    assert "another merchant" in result.reason

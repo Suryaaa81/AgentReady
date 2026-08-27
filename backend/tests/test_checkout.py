@@ -2,6 +2,7 @@ import pytest
 
 from app.models.catalog import Inventory
 from app.schemas.checkout import CheckoutItemCreate, CheckoutSessionCreate
+from app.schemas.merchant import MerchantPolicyCreate
 from app.services import catalog, checkout
 
 _CSV_HDR = (
@@ -77,3 +78,51 @@ def test_checkout_audit_endpoint_returns_events(client, db, merchant):
 
     assert response.status_code == 200
     assert response.json()[0]["event_type"] == "CHECKOUT_CREATED"
+
+
+def test_checkout_rejects_illegal_transition(db, merchant):
+    csv_data = "\n".join([
+        _CSV_HDR,
+        "SHOE-4,Sneaker,,Shoes,1000.00,INR,SHOE-4-M,,1000.00,10",
+    ])
+    catalog.import_catalog_csv(db, merchant.id, csv_data)
+    variant_id = catalog.get_products(db, merchant.id)[0].variants[0].id
+    checkout_session = checkout.create_checkout(
+        db,
+        merchant.id,
+        CheckoutSessionCreate(items=[CheckoutItemCreate(variant_id=variant_id, quantity=1)]),
+    )
+
+    checkout.update_checkout_status(db, checkout_session.id, "CANCELLED")
+
+    with pytest.raises(ValueError, match="Invalid checkout transition"):
+        checkout.update_checkout_status(db, checkout_session.id, "AUTHORIZED")
+
+
+def test_human_approval_continues_to_authorized(client, db, merchant, auth_headers):
+    csv_data = "\n".join([
+        _CSV_HDR,
+        "SHOE-5,Sneaker,,Shoes,2000.00,INR,SHOE-5-M,,2000.00,10",
+    ])
+    catalog.import_catalog_csv(db, merchant.id, csv_data)
+    from app.services.policy import upsert_policy
+
+    upsert_policy(
+        db,
+        merchant.id,
+        MerchantPolicyCreate(
+            max_autonomous_amount=1000, approval_threshold=3000, daily_limit=10000
+        ),
+    )
+    variant_id = catalog.get_products(db, merchant.id)[0].variants[0].id
+    response = client.post(
+        "/checkout/sessions",
+        headers=auth_headers,
+        json={"items": [{"variant_id": variant_id, "quantity": 1}], "currency": "INR"},
+    )
+    checkout_id = response.json()["id"]
+
+    authorization = client.post(f"/checkout/sessions/{checkout_id}/authorize")
+    assert authorization.json()["status"] == "AUTHORIZATION_REQUIRED"
+    approved = client.post(f"/checkout/sessions/{checkout_id}/authorize")
+    assert approved.json()["status"] == "AUTHORIZED"
