@@ -24,12 +24,12 @@ class Settings(BaseSettings):
     ENV: str = "development"
     CORS_ORIGINS: str = "http://localhost:5173"
 
-    # Phase 4 — Gemini
+    # Gemini agent
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
     MAX_AGENT_TOOL_ROUNDS: int = 8
 
-    # Phase 5 — Razorpay (not used yet)
+    # Razorpay Test Mode
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""

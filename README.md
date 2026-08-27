@@ -63,7 +63,7 @@ dev server starts, so restart `npm run dev` after changing it.
 
 ### Manual backend setup
 
-```bash
+```powershell
 cd backend
 python -m venv .venv
 # Windows:
@@ -112,10 +112,10 @@ For macOS/Linux, use `cp` instead of `Copy-Item` and
 | `DATABASE_URL` | backend `.env` | PostgreSQL connection string; the default local SQLite file is absolute and lives in `backend/` |
 | `ENV` | backend `.env` | `development` or `production` |
 | `CORS_ORIGINS` | backend `.env` | Comma-separated allowed origins |
-| `GEMINI_API_KEY` | backend `.env` | Phase 4 — Gemini function-calling |
-| `RAZORPAY_KEY_ID` | backend `.env` | Phase 5 — Razorpay test key |
-| `RAZORPAY_KEY_SECRET` | backend `.env` | Phase 5 — Razorpay test secret |
-| `RAZORPAY_WEBHOOK_SECRET` | backend `.env` | Phase 5 — webhook verification |
+| `GEMINI_API_KEY` | backend `.env` | Gemini function-calling credentials |
+| `RAZORPAY_KEY_ID` | backend `.env` | Razorpay Test Mode key ID |
+| `RAZORPAY_KEY_SECRET` | backend `.env` | Razorpay Test Mode secret |
+| `RAZORPAY_WEBHOOK_SECRET` | backend `.env` | Razorpay webhook verification secret |
 | `VITE_API_URL` | frontend `.env` / Vercel | Backend base URL |
 | `VITE_MERCHANT_API_KEY` | frontend `.env` / Vercel | Merchant API key from `POST /merchant/register` or `seed_demo.py` |
 
