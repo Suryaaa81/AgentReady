@@ -148,7 +148,7 @@ None of this logic lives in a prompt. It's plain Python, deterministic, testable
 **Known, documented gaps:**
 - Key rotation/revocation isn't exposed via an endpoint yet — regenerating a key means registering a new merchant record. A reasonable trade-off for a demo, but worth a one-sentence answer on the roadmap for real multi-tenant use.
 - Two checkout-lifecycle routes (`cancel`, `authorize`) are intentionally left unauthenticated — `checkout_id` itself functions as the bearer capability for that resource, the same pattern Stripe Checkout Sessions use. Documented in `docs/architecture.md`, not an oversight, but worth being ready to explain the trade-off if asked.
-- The FINAL_BUILDATHON_REPORT's "quality gate" section previously claimed checks that hadn't actually been run in CI — worth updating that document to reflect the now-verified state rather than the earlier aspirational one.
+- CI is not configured in this repository; the quality gates listed above were verified locally and should be rerun after dependency or deployment changes.
 
 ---
 
