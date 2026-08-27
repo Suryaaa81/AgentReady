@@ -1,9 +1,17 @@
 /**
  * Typed API client for the AgentReady backend.
- * Base URL is set via VITE_API_URL environment variable.
+ *
+ * Base URL:  VITE_API_URL      (default http://localhost:8000)
+ * Auth key:  VITE_MERCHANT_API_KEY — obtained once from POST /merchant/register
+ *            (see scripts/seed_demo.py, or the backend README).
+ *
+ * The API key identifies the merchant server-side; it is never derived
+ * from anything the client claims. Every authenticated call sends it as
+ * the `X-API-Key` header.
  */
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const API_KEY = import.meta.env.VITE_MERCHANT_API_KEY ?? "";
 
 export interface HealthResponse {
   status: "ok" | "degraded";
@@ -21,7 +29,10 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   if (!(init?.body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
-  
+  if (API_KEY) {
+    headers["X-API-Key"] = API_KEY;
+  }
+
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: { ...headers, ...init?.headers },
     ...init,
@@ -35,37 +46,42 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: (): Promise<HealthResponse> => apiFetch<HealthResponse>("/health"),
-  
+
+  // Merchant
+  register: (name: string, email: string): Promise<any> =>
+    apiFetch("/merchant/register", { method: "POST", body: JSON.stringify({ name, email }) }),
+
   // Catalog
-  getProducts: (merchantId: string): Promise<any[]> => apiFetch(`/catalog/products?merchant_id=${merchantId}`),
-  importCatalog: (merchantId: string, file: File): Promise<any> => {
+  getProducts: (): Promise<any[]> => apiFetch("/catalog/products"),
+  importCatalog: (file: File): Promise<any> => {
     const formData = new FormData();
-    formData.append("merchant_id", merchantId);
     formData.append("file", file);
     return apiFetch("/catalog/import", { method: "POST", body: formData });
   },
 
   // Policy
-  getPolicy: (merchantId: string): Promise<any> => apiFetch(`/merchant/policies?merchant_id=${merchantId}`),
-  updatePolicy: (merchantId: string, policy: any): Promise<any> => 
-    apiFetch(`/merchant/policies?merchant_id=${merchantId}`, { method: "PUT", body: JSON.stringify(policy) }),
+  getPolicy: (): Promise<any> => apiFetch("/merchant/policies"),
+  updatePolicy: (policy: any): Promise<any> =>
+    apiFetch("/merchant/policies", { method: "PUT", body: JSON.stringify(policy) }),
 
-  // Checkout
-  createCheckout: (merchantId: string, items: any[]): Promise<any> =>
-    apiFetch(`/checkout/sessions?merchant_id=${merchantId}`, { method: "POST", body: JSON.stringify({ merchant_id: merchantId, items, currency: "INR" }) }),
+  // Checkout — no auth needed for get/authorize: checkout_id itself is the
+  // bearer capability an AI buyer polls with (see backend/app/routers/checkout.py)
+  createCheckout: (items: any[]): Promise<any> =>
+    apiFetch("/checkout/sessions", { method: "POST", body: JSON.stringify({ items, currency: "INR" }) }),
   getCheckout: (checkoutId: string): Promise<any> => apiFetch(`/checkout/sessions/${checkoutId}`),
-  authorizeCheckout: (checkoutId: string): Promise<any> => apiFetch(`/checkout/sessions/${checkoutId}/authorize`, { method: "POST" }),
-  
+  authorizeCheckout: (checkoutId: string): Promise<any> =>
+    apiFetch(`/checkout/sessions/${checkoutId}/authorize`, { method: "POST" }),
+
   // Agent
-  chat: (merchantId: string, messages: any[]): Promise<any> => 
-    apiFetch(`/agent/chat`, { method: "POST", body: JSON.stringify({ merchant_id: merchantId, messages }) }),
-    
+  chat: (messages: any[]): Promise<any> =>
+    apiFetch("/agent/chat", { method: "POST", body: JSON.stringify({ messages }) }),
+
   // Payment
-  createPayment: (checkoutId: string): Promise<any> => 
-    apiFetch(`/payment/order`, { method: "POST", body: JSON.stringify({ checkout_id: checkoutId }) }),
-  verifyPayment: (data: any): Promise<any> => 
-    apiFetch(`/payment/verify`, { method: "POST", body: JSON.stringify(data) }),
-    
+  createPayment: (checkoutId: string): Promise<any> =>
+    apiFetch("/payment/order", { method: "POST", body: JSON.stringify({ checkout_id: checkoutId }) }),
+  verifyPayment: (data: any): Promise<any> =>
+    apiFetch("/payment/verify", { method: "POST", body: JSON.stringify(data) }),
+
   // Audit
-  getMerchantTimeline: (merchantId: string): Promise<any[]> => apiFetch(`/audit/merchant?merchant_id=${merchantId}`),
+  getMerchantTimeline: (): Promise<any[]> => apiFetch("/audit/merchant"),
 };

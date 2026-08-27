@@ -26,6 +26,7 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "httpx>=0.27.0",
     "ruff>=0.4.0",
+    "mypy>=1.10.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -43,3 +44,15 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/seed_demo.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = ["razorpay.*", "google.*", "slowapi.*"]
+ignore_missing_imports = true

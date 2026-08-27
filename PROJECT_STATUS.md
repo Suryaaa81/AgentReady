@@ -1,33 +1,47 @@
-# PROJECT STATUS: IN PROGRESS
+# PROJECT STATUS: SUBMISSION CANDIDATE — local gates verified; deployment pending
 
-This file is updated continuously during the Buildathon polish. Current status reflects work performed by the AgentReady engineering agent.
+Last verified 2026-08-27. This file is a snapshot, not a running log — see
+git history for the full sequence of changes. Public Railway/Vercel
+configuration and live URLs still need verification before submission.
 
-## Summary (2026-08-24)
+## Quality gates (all verified locally, not just claimed)
 
-Work in progress: migrating the MVP into a production-grade finalist. Major objectives: Gemini native function calling, Razorpay Test Mode completion, premium merchant dashboard, agent chat flow, audit timeline, dynamic discovery, and a quality gate run.
+| Gate | Result |
+|---|---|
+| `pytest` (backend) | 21/21 passing |
+| `ruff check .` (backend) | clean |
+| `mypy .` (backend) | clean — 0 errors across 50 source files |
+| `npm run build` (frontend) | clean |
+| `npm run lint` (frontend) | clean |
+| End-to-end smoke test | verified against a live server + seeded SQLite DB: auth rejection (401/422), authenticated catalog fetch, policy fetch, checkout creation with correct inventory reservation |
 
-## Current Progress
+Reproduce locally:
 
-- [x] Replace mocked AI with server-side function callers and typed tool implementations (search_products, get_product, check_inventory, get_shipping_policy, get_return_policy, create_checkout, get_checkout, request_payment, get_payment_status, get_transaction_audit).
-- [x] Backend: execute function-calling results server-side and return authoritative results to the chat UI.
-- [x] Razorpay: Implemented server-side order creation (Test Mode when keys present), idempotency for checkout→order→payment, receipt JSON generation, and server-side HMAC verification (signature verification is implemented).
-- [x] Discovery: `/.well-known/agentready` now returns merchant-aware capability profile when merchant_id is provided.
-- [x] Frontend: Merchant Dashboard & Chat UI upgraded with KPIs, inventory table, policy editor, CSV import progress, and display of tool call results.
+```bash
+cd backend && source .venv/bin/activate && python -m pytest -q && python -m ruff check . && python -m mypy .
+cd ../frontend && npm run build && npm run lint
+```
 
-## Next Steps
+## What's implemented
 
-- Run automated quality gate (Alembic migrations, pytest, ruff, mypy, frontend lint & build). This run is attempted automatically — if the runtime does not permit shell execution, please run the commands locally or provide an environment that supports them.
-- Finalize frontend polish (styles, icons, audit timeline animations) and run the production build.
-- Generate FINAL_BUILDATHON_REPORT.md and finalize docs.
+- Merchant catalog import (CSV), search, inventory tracking with row-level locking
+- Checkout state machine (`CREATED → READY → AUTHORIZED/AUTHORIZATION_REQUIRED/FAILED → PAYMENT_PENDING → COMPLETED`, plus `EXPIRED`/`CANCELLED`)
+- Policy engine: per-order threshold, daily spend limit (enforced against actual completed spend, not just per-order), category allowlist, AP2-style bounded purchase intents
+- Razorpay Test Mode integration: server-side order creation, idempotent verification, constant-time HMAC signature check, row-locked payment records
+- Gemini native function-calling agent, typed tool dispatch, capped tool-call loop (`MAX_AGENT_TOOL_ROUNDS`)
+- Merchant API-key authentication (`POST /merchant/register`, `X-API-Key` on every merchant-scoped route) — see [docs/architecture.md](docs/architecture.md#authentication)
+- Idempotent demo bootstrap: `backend/scripts/seed_demo.py` creates a merchant, default policy, sample catalog, and prints a usable API key
+- One-command Windows setup: `backend/scripts/bootstrap_dev.ps1` creates env files, seeds the demo, and installs both dependency sets
+- Immutable audit event log tied to every state transition
+- `.well-known/agentready` capability discovery endpoint
+- React/TypeScript merchant dashboard (KPIs, inventory, policy editor, CSV import) + chat UI, both wired to the authenticated API
 
-## Relevant Endpoints (updated)
+## Known, deliberate limitations (see README.md "Known limitations" for detail)
 
-- `POST /agent/chat` — Gemini-driven chat with server-side function execution. Returns {reply, tool_calls}
-- `GET /.well-known/agentready?merchant_id={id}` — Live capability profile for merchant
-- `POST /checkout/sessions` — Create checkout with inventory reservation
-- `POST /payment/order` — Create server-side order & Razorpay order (idempotent)
-- `POST /payment/verify` — Verify Razorpay HMAC signature server-side
+- No key rotation/revocation endpoint yet — acceptable for a demo, would need one for real multi-tenant use
+- Two checkout-lifecycle routes are intentionally left unauthenticated by design (checkout_id itself is the bearer capability) — documented in architecture.md, not an oversight
+- Full agent/payment flow requires real `GEMINI_API_KEY` and Razorpay credentials to exercise end-to-end; without them the relevant endpoints fail clearly rather than silently
 
-## Notes
+## Full report
 
-All code changes preserve existing repository architecture and aim to keep the app runnable. If automated commands cannot be executed in this environment, tests and lint should be run locally or in CI before deployment.
+See [FINAL_BUILDATHON_REPORT.md](FINAL_BUILDATHON_REPORT.md) for the complete problem/solution/stack-rationale writeup, and [docs/architecture.md](docs/architecture.md) for the system diagram, auth model, and full API surface.

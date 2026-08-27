@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEFAULT_DATABASE_PATH = Path(__file__).resolve().parents[1] / "agentready_dev.db"
+BACKEND_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=BACKEND_ENV_PATH,
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
 
     # Database
-    DATABASE_URL: str = "sqlite:///./agentready_dev.db"
+    DATABASE_URL: str = f"sqlite:///{DEFAULT_DATABASE_PATH.as_posix()}"
 
     # Server
     ENV: str = "development"

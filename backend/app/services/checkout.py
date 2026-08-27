@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,7 +15,7 @@ def create_checkout(
     db: Session, merchant_id: str, checkout_in: CheckoutSessionCreate
 ) -> CheckoutSession:
     # Calculate total amount and verify inventory lock
-    total_amount = 0
+    total_amount = Decimal("0")
     items_to_add = []
 
     for item_in in checkout_in.items:
@@ -77,7 +78,7 @@ def create_checkout(
             actor="system",
             payload={
                 "checkout_id": session_obj.id,
-                "total_amount": float(session_obj.total_amount),
+                "total_amount": float(session_obj.total_amount or 0),
             },
         ),
         checkout_id=session_obj.id,
@@ -87,7 +88,7 @@ def create_checkout(
 
 
 def update_checkout_status(
-    db: Session, checkout_id: str, status: str, failure_reason: str = None
+    db: Session, checkout_id: str, status: str, failure_reason: str | None = None
 ) -> CheckoutSession:
     session_obj = db.execute(
         select(CheckoutSession).where(CheckoutSession.id == checkout_id).with_for_update()

@@ -22,7 +22,6 @@ class CheckoutItemResponse(CheckoutItemBase):
 
 
 class CheckoutSessionBase(BaseModel):
-    merchant_id: str = Field(min_length=36, max_length=36)
     currency: str = Field(default="INR", min_length=3, max_length=3)
 
 
@@ -33,6 +32,7 @@ class CheckoutSessionCreate(CheckoutSessionBase):
 class CheckoutSessionResponse(CheckoutSessionBase):
     model_config = ConfigDict(from_attributes=True)
     id: str
+    merchant_id: str
     status: str
     failure_reason: str | None = None
     total_amount: Decimal | None = None

@@ -21,7 +21,7 @@ HAT,Cap,Hats,500.00,HAT-M,10"""
 
     # 1. Create Checkout
     session_create = CheckoutSessionCreate(
-        merchant_id=merchant.id, items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
+        items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
     )
     checkout_session = checkout.create_checkout(db, merchant.id, session_create)
 

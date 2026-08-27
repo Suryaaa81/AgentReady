@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, ForeignKey, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -20,7 +21,7 @@ class Product(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     merchant_id: Mapped[str] = mapped_column(
         String(36),
-        __import__("sqlalchemy").ForeignKey("merchants.id"),
+        ForeignKey("merchants.id"),
         nullable=False,
         index=True,
     )
@@ -28,7 +29,7 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(512), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     category: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
-    base_price: Mapped[Numeric] = mapped_column(Numeric(12, 2), nullable=False)
+    base_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = ts_created()
@@ -46,7 +47,7 @@ class ProductVariant(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     product_id: Mapped[str] = mapped_column(
         String(36),
-        __import__("sqlalchemy").ForeignKey("products.id"),
+        ForeignKey("products.id"),
         nullable=False,
         index=True,
     )
@@ -54,7 +55,7 @@ class ProductVariant(Base):
     attributes: Mapped[dict | None] = mapped_column(
         JSON, nullable=True
     )  # {"size": "M", "color": "red"}
-    price_override: Mapped[Numeric | None] = mapped_column(Numeric(12, 2), nullable=True)
+    price_override: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     created_at: Mapped[datetime] = ts_created()
 
     product: Mapped[Product] = relationship("Product", back_populates="variants")
@@ -69,7 +70,7 @@ class Inventory(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     variant_id: Mapped[str] = mapped_column(
         String(36),
-        __import__("sqlalchemy").ForeignKey("product_variants.id"),
+        ForeignKey("product_variants.id"),
         unique=True,
         nullable=False,
         index=True,

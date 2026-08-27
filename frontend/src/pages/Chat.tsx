@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { api } from "../lib/api";
 
-const MERCHANT_ID = "00000000-0000-4000-a000-000000000000";
 
 export default function Chat() {
   const [messages, setMessages] = useState<{ role: string, content: string }[]>([
@@ -17,7 +16,7 @@ export default function Chat() {
     setInput("");
 
     try {
-      const res = await api.chat(MERCHANT_ID, newMessages);
+      const res = await api.chat(newMessages);
       // Show assistant reply
       setMessages(prev => [...prev, { role: "assistant", content: res.reply }]);
 

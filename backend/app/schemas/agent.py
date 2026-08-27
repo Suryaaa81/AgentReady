@@ -9,7 +9,6 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    merchant_id: str
     messages: list[ChatMessage]
 
 

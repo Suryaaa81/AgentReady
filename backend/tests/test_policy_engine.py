@@ -23,7 +23,7 @@ HAT,Cap,Hats,400.00,HAT-M,50"""
 
     # Simulate a prior COMPLETED order today worth 400 against a 500 daily cap.
     session_create = CheckoutSessionCreate(
-        merchant_id=merchant.id, items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
+        items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
     )
     prior_checkout = checkout.create_checkout(db, merchant.id, session_create)
     prior_order = Order(
@@ -66,7 +66,7 @@ HAT,Cap,Hats,500.00,HAT-M,10"""
 
     # Checkout 1 hat
     session_create = CheckoutSessionCreate(
-        merchant_id=merchant.id, items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
+        items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
     )
     checkout_session = checkout.create_checkout(db, merchant.id, session_create)
 
@@ -92,7 +92,7 @@ SHOES,Shoes,Shoes,500.00,SHOES-M,10"""
     )
 
     session_create = CheckoutSessionCreate(
-        merchant_id=merchant.id, items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
+        items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
     )
     checkout_session = checkout.create_checkout(db, merchant.id, session_create)
 
@@ -119,7 +119,7 @@ HAT,Cap,Hats,2000.00,HAT-L,10"""
     )
 
     session_create = CheckoutSessionCreate(
-        merchant_id=merchant.id, items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
+        items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
     )
     checkout_session = checkout.create_checkout(db, merchant.id, session_create)
 
@@ -141,7 +141,7 @@ HAT,Cap,Hats,500.00,HAT-S,10"""
     )
 
     session_create = CheckoutSessionCreate(
-        merchant_id=merchant.id, items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
+        items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
     )
     checkout_session = checkout.create_checkout(db, merchant.id, session_create)
 

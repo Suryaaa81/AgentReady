@@ -42,3 +42,9 @@ class MerchantResponse(MerchantBase):
     created_at: datetime
     updated_at: datetime
     policies: list[MerchantPolicyResponse] = []
+
+
+class MerchantRegisterResponse(MerchantResponse):
+    api_key: str = Field(
+        description="Plaintext API key — shown once. Store it now; it cannot be retrieved again."
+    )

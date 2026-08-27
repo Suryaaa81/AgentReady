@@ -118,8 +118,9 @@ None of this logic lives in a prompt. It's plain Python, deterministic, testable
 | Charts | **Recharts** | ^3.10 | Used for the dashboard's Revenue/Inventory visualizations — declarative React charting that composes naturally with the rest of the component tree. |
 | Routing | **React Router** | ^7.18 | Standard SPA routing for Dashboard / Chat / Checkout views. |
 | Linting | **ruff** (backend), **oxlint** (frontend) | — | Both are Rust-based, fast enough to run in a pre-commit/CI loop without friction — chosen over slower Python/JS-native linters (flake8/eslint) specifically so linting doesn't become a step people skip under deadline pressure. |
-| Type checking | **mypy** | — | Configured for the backend; currently surfaces ~31 pre-existing errors (mostly `SQLAlchemy Numeric` → `float()` coercion patterns and missing third-party stubs for `google-genai`/`razorpay`) that haven't been cleaned up yet — noted honestly rather than glossed over, see §5. |
-| Testing | **pytest** | ≥8.2 | 13 backend tests covering catalog/policy, checkout, health, payment, and policy-engine logic (including daily-limit structuring prevention) — all passing. |
+| Type checking | **mypy** | — | Configured for the backend; clean — 0 errors across 50 source files (fixed a `SQLAlchemy Numeric` → `Decimal` type-annotation mismatch that caused most of the original error count, plus a handful of implicit-Optional and untyped-dict issues). |
+| Auth | Hashed API keys (`hashlib`/`secrets`, stdlib) | — | No third-party auth library pulled in for a single-credential-per-merchant model — `secrets.token_urlsafe` for key generation and SHA-256 for at-rest hashing is the whole mechanism, verified via a FastAPI dependency (`X-API-Key` header) rather than middleware, so it composes cleanly with route-level `Depends()` and is trivial to swap for OAuth/JWT later without touching route logic. |
+| Testing | **pytest** | ≥8.2 | 20 backend tests covering catalog/policy, checkout, health, payment, policy-engine logic (including daily-limit structuring prevention), and the full auth surface (registration, key rejection, cross-merchant isolation) — all passing. |
 | Backend hosting | **Railway** | — | Simple Docker-based deploy for a FastAPI + Postgres backend without managing infrastructure by hand; fits a buildathon timeline. |
 | Frontend hosting | **Vercel** | — | Standard zero-config deploy target for a Vite/React SPA. |
 
@@ -139,11 +140,14 @@ None of this logic lives in a prompt. It's plain Python, deterministic, testable
 - Checkout→order→payment idempotency is correct.
 - Policy engine (including the daily-limit fix now shipped) closes the "structuring" bypass class.
 - Gemini tool-calling loop is now capped (was previously unbounded — a real cost/DoS risk from a runaway or prompt-injected tool-call chain).
-- 13/13 backend tests pass, ruff clean, frontend build and lint clean.
+- Merchant authentication is real: hashed API keys, never trusted from the client, verified against a live server (401 on missing/bad key, 200 with correct data on a valid one) and against cross-merchant impersonation attempts specifically.
+- 21/21 backend tests pass, ruff clean, mypy clean (0 errors), frontend build and lint clean — all four gates verified locally, not just claimed.
+- `scripts/seed_demo.py` makes the demo reproducible on a fresh database — verified idempotent (safe to re-run) and verified against a from-scratch SQLite DB end-to-end via a live server.
+- `scripts/bootstrap_dev.ps1` provides a cwd-independent Windows first-run path that creates both env files, seeds the demo, and installs backend and frontend dependencies.
 
 **Known, documented gaps:**
-- No auth/multi-tenancy yet — `merchant_id` is a trusted header, not authenticated. Explicitly called out in the README as a Phase 1 limitation, not hidden.
-- mypy has ~31 pre-existing type errors (Numeric/float coercion patterns, missing stubs) that predate the latest patch and haven't been cleaned up.
+- Key rotation/revocation isn't exposed via an endpoint yet — regenerating a key means registering a new merchant record. A reasonable trade-off for a demo, but worth a one-sentence answer on the roadmap for real multi-tenant use.
+- Two checkout-lifecycle routes (`cancel`, `authorize`) are intentionally left unauthenticated — `checkout_id` itself functions as the bearer capability for that resource, the same pattern Stripe Checkout Sessions use. Documented in `docs/architecture.md`, not an oversight, but worth being ready to explain the trade-off if asked.
 - The FINAL_BUILDATHON_REPORT's "quality gate" section previously claimed checks that hadn't actually been run in CI — worth updating that document to reflect the now-verified state rather than the earlier aspirational one.
 
 ---
@@ -166,8 +170,8 @@ This is not a novel problem space, and the report is stronger for saying so plai
 The Razorpay AI Buildathon is a hiring pipeline, not a scored leaderboard — evaluation is a public GitHub repo, a 5-minute pitch video, and a panel interview where you explain the problem, the architecture, the technical decisions, and what broke and how it got fixed. Given that format:
 
 - **In favor:** a real state machine, real HMAC verification with concurrency handling, a policy engine that goes beyond a single per-order limit, and an audit trail — most entries in this track will have a chatbot that calls a payment API once and stops there.
-- **Fixed and verified this session:** daily-limit enforcement (structuring prevention), the unbounded agent tool-call loop, a redundant receipt write, and the Vercel deployment-protection gate that was blocking the live demo link.
-- **Still open, and worth having a one-paragraph answer ready for:** why auth/multi-tenancy is out of scope for the demo, and an honest note that the mypy backlog exists and isn't blocking functionality.
+- **Fixed and verified this session:** daily-limit enforcement (structuring prevention), the unbounded agent tool-call loop, a redundant receipt write, merchant API-key authentication (previously the single biggest open gap), the full mypy backlog, a reproducible demo bootstrap (`scripts/seed_demo.py`), and a cwd-independent Windows bootstrap (`scripts/bootstrap_dev.ps1`). Vercel deployment protection remains an external pre-submission check.
+- **Still open, and worth having a one-paragraph answer ready for:** why key rotation isn't a full endpoint yet, and why two checkout-lifecycle routes are deliberately left unauthenticated (see above). Live Railway/Vercel configuration and an incognito deployment check remain pending until access to those projects and credentials is available; no live URL is claimed here.
 
 ---
 

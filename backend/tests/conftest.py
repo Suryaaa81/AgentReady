@@ -64,9 +64,22 @@ def client(db):
 @pytest.fixture
 def merchant(db):
     from app.models.merchant import Merchant
+    from app.security import generate_api_key, hash_api_key
 
-    m = Merchant(name="Test Merchant", email="test@example.com")
+    plaintext_key = generate_api_key()
+    m = Merchant(
+        name="Test Merchant",
+        email="test@example.com",
+        api_key_hash=hash_api_key(plaintext_key),
+    )
     db.add(m)
     db.commit()
     db.refresh(m)
+    m.plaintext_api_key = plaintext_key  # test-only convenience, not a real column
     return m
+
+
+@pytest.fixture
+def auth_headers(merchant):
+    """X-API-Key header for the `merchant` fixture, for HTTP-level route tests."""
+    return {"X-API-Key": merchant.plaintext_api_key}

@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -32,6 +33,20 @@ async def cleanup_task():
         await asyncio.sleep(60)
 
 
+async def _rate_limit_handler(request: Request, exc: Exception) -> Response:
+    """Typed wrapper around slowapi's handler.
+
+    slowapi's `_rate_limit_exceeded_handler` is untyped and only accepts
+    `RateLimitExceeded`, which doesn't match Starlette's
+    `(Request, Exception) -> Response` exception-handler signature. This
+    wrapper exists purely to satisfy that contract for mypy; the cast is
+    safe because Starlette only ever calls this handler for the exact
+    exception type it's registered against.
+    """
+    assert isinstance(exc, RateLimitExceeded)
+    return _rate_limit_exceeded_handler(request, exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     task = asyncio.create_task(cleanup_task())
@@ -53,7 +68,7 @@ app = FastAPI(
 )
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
 app.add_middleware(
     CORSMiddleware,

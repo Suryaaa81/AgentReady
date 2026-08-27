@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.limiter import limiter
+from app.models.merchant import Merchant
 from app.schemas.agent import ChatRequest, ChatResponse
+from app.security import get_current_merchant
 from app.services import agent
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -14,7 +16,8 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 def chat_with_agent(
     req: Request,
     request: ChatRequest,
-    db: Session = Depends(get_db)
+    current: Merchant = Depends(get_current_merchant),
+    db: Session = Depends(get_db),
 ):
-    reply, tool_calls = agent.handle_chat(db, request.merchant_id, request.messages)
+    reply, tool_calls = agent.handle_chat(db, current.id, request.messages)
     return ChatResponse(reply=reply, tool_calls=tool_calls)

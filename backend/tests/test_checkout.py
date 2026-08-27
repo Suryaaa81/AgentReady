@@ -22,7 +22,7 @@ def test_checkout_and_inventory_reservation(db, merchant):
 
     # Create checkout
     session_create = CheckoutSessionCreate(
-        merchant_id=merchant.id, items=[CheckoutItemCreate(variant_id=variant_id, quantity=3)]
+        items=[CheckoutItemCreate(variant_id=variant_id, quantity=3)]
     )
 
     checkout_session = checkout.create_checkout(db, merchant.id, session_create)
@@ -53,8 +53,27 @@ def test_checkout_out_of_stock(db, merchant):
     variant_id = products[0].variants[0].id
 
     session_create = CheckoutSessionCreate(
-        merchant_id=merchant.id, items=[CheckoutItemCreate(variant_id=variant_id, quantity=3)]
+        items=[CheckoutItemCreate(variant_id=variant_id, quantity=3)]
     )
 
     with pytest.raises(ValueError, match="Insufficient stock"):
         checkout.create_checkout(db, merchant.id, session_create)
+
+
+def test_checkout_audit_endpoint_returns_events(client, db, merchant):
+    csv_data = "\n".join([
+        _CSV_HDR,
+        "SHOE-3,Sneaker,,Shoes,1000.00,INR,SHOE-3-M,,1000.00,10",
+    ])
+    catalog.import_catalog_csv(db, merchant.id, csv_data)
+    variant_id = catalog.get_products(db, merchant.id)[0].variants[0].id
+    checkout_session = checkout.create_checkout(
+        db,
+        merchant.id,
+        CheckoutSessionCreate(items=[CheckoutItemCreate(variant_id=variant_id, quantity=1)]),
+    )
+
+    response = client.get(f"/audit/checkout/{checkout_session.id}")
+
+    assert response.status_code == 200
+    assert response.json()[0]["event_type"] == "CHECKOUT_CREATED"

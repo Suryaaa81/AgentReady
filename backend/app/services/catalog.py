@@ -122,11 +122,11 @@ def import_catalog_csv(db: Session, merchant_id: str, csv_content: str) -> Catal
                     result.variants_updated += 1
 
                     # Update inventory
-                    inventory = db.execute(
+                    existing_inventory = db.execute(
                         select(Inventory).where(Inventory.variant_id == variant.id)
                     ).scalar_one_or_none()
-                    if inventory and row.get("inventory_available") is not None:
-                        inventory.available_qty = int(row["inventory_available"])
+                    if existing_inventory and row.get("inventory_available") is not None:
+                        existing_inventory.available_qty = int(row["inventory_available"])
                 db.flush()
 
         except Exception as e:

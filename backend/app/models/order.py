@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Numeric, String
+from sqlalchemy import DateTime, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -20,19 +21,19 @@ class Order(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     checkout_id: Mapped[str] = mapped_column(
         String(36),
-        __import__("sqlalchemy").ForeignKey("checkout_sessions.id"),
+        ForeignKey("checkout_sessions.id"),
         unique=True,
         nullable=False,
         index=True,
     )
     merchant_id: Mapped[str] = mapped_column(
         String(36),
-        __import__("sqlalchemy").ForeignKey("merchants.id"),
+        ForeignKey("merchants.id"),
         nullable=False,
         index=True,
     )
     status: Mapped[str] = mapped_column(String(64), nullable=False, default="PENDING", index=True)
-    total_amount: Mapped[Numeric] = mapped_column(Numeric(12, 2), nullable=False)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
     created_at: Mapped[datetime] = ts_created()
     updated_at: Mapped[datetime] = ts_updated()
@@ -54,7 +55,7 @@ class Payment(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     order_id: Mapped[str] = mapped_column(
         String(36),
-        __import__("sqlalchemy").ForeignKey("orders.id"),
+        ForeignKey("orders.id"),
         nullable=False,
         index=True,
     )
@@ -63,7 +64,7 @@ class Payment(Base):
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="PENDING", index=True
     )  # PENDING | CAPTURED | FAILED | REFUNDED
-    amount: Mapped[Numeric] = mapped_column(Numeric(12, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = ts_created()

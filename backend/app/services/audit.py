@@ -14,6 +14,8 @@ def log_event(
         event_type=event_in.event_type,
         actor=event_in.actor,
         payload=event_in.payload,
+        ip_address=event_in.ip_address,
+        user_agent=event_in.user_agent,
     )
     db.add(event)
     db.commit()

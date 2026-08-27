@@ -201,45 +201,74 @@ Side states reachable from most states:
 | payload | JSONB | |
 | created_at | TIMESTAMPTZ | immutable |
 
+## Authentication
+
+Every merchant gets one API key, issued once at `POST /merchant/register`
+and never shown again — only its SHA-256 hash is stored
+(`merchants.api_key_hash`). Callers send it as `X-API-Key` on every
+authenticated request.
+
+`merchant_id` is never accepted from the client anymore. Every route that
+used to take it as a query/body parameter now derives it from the
+authenticated key instead (`app/security.py::get_current_merchant`) — a
+caller can only ever act as the merchant whose key it holds. Two routes
+are deliberately left unauthenticated by design, not by oversight:
+`GET /checkout/sessions/{id}` and `GET /audit/checkout/{id}` — the
+`checkout_id` itself is an unguessable UUID that functions as a bearer
+capability for that one resource, the same pattern Stripe Checkout
+Sessions use, so an AI buyer polling for status doesn't need the
+merchant's own key.
+
 ## API Surface
 
-### Discovery
-- `GET /.well-known/agentready` — capability profile
+(routes as implemented — see `backend/app/routers/` for the source of truth)
+
+### Discovery — public
+- `GET /health`
+- `GET /.well-known/agentready?merchant_id={id}` — capability profile
 
 ### Merchant
-- `POST /catalog/import`
-- `GET /products`
-- `GET /policies` / `PUT /policies`
-- `GET /activity`
+- `POST /merchant/register` — public; creates a merchant + default policy, returns the API key once
+- `GET /merchant/policies` — auth required
+- `PUT /merchant/policies` — auth required
 
-### Agent Tools (function-calling)
-- `POST /search`
-- `GET /products/{id}`
-- `POST /checkouts` / `GET /checkouts/{id}`
-- `POST /checkouts/{id}/update`
-- `POST /checkouts/{id}/authorize`
-- `POST /checkouts/{id}/complete`
-- `POST /checkouts/{id}/cancel`
+### Catalog — auth required
+- `GET /catalog/products`
+- `POST /catalog/import` (CSV upload)
+- `GET /catalog/search?query=`
 
-### Payments
-- `POST /payments/create`
-- `POST /payments/verify`
-- `GET /payments/{id}`
+### Checkout
+- `POST /checkout/sessions` — auth required
+- `GET /checkout/sessions/{id}` — public (see Authentication above)
+- `POST /checkout/sessions/{id}/cancel` — public
+- `POST /checkout/sessions/{id}/authorize` — public
+- `POST /checkout/intents` — auth required
+
+### Agent
+- `POST /agent/chat` — auth required; Gemini function-calling loop, capped at `MAX_AGENT_TOOL_ROUNDS` (default 8)
+
+### Payment
+- `POST /payment/order`
+- `POST /payment/verify` — HMAC-SHA256 signature check, constant-time compare, row-locked
 
 ### Audit
-- `GET /audit/checkout/{id}`
+- `GET /audit/merchant` — auth required
+- `GET /audit/checkout/{id}` — public (see Authentication above)
 
-### Health
-- `GET /health`
+For local development, `backend/scripts/bootstrap_dev.ps1` creates a
+cwd-independent SQLite database at `backend/agentready_dev.db`, seeds the
+demo merchant and catalog, and writes the Vite API key to `frontend/.env`.
+Production deployments use PostgreSQL and Alembic migrations instead.
 
 ## Build Log
 
-### Phase 1 — Foundation (2026-08-24)
-- **Phase 1**: Monorepo structure, database models, schemas, deployments, health checks (Implemented).
-- **Phase 2**: Catalog CRUD, Policy engine rules, Discovery endpoints (Implemented).
-- **Phase 3**: Checkout state machine, inventory reservation (Implemented).
-- **Phase 4**: Agent-facing schemas and mock capability endpoints (Implemented).
-- **Phase 5**: Razorpay Test Mode integration, HMAC server-side verification (Partially Implemented - server-side order creation, idempotency, and HMAC verification added; set RAZORPAY_KEY_ID/SECRET to enable remote Test Mode order creation).
-- **Phase 6**: Audit Trail immutable event log (Implemented).
-- **Phase 7**: Basic React Admin/Chat/Checkout UI (Implemented).
+- **Foundation**: monorepo structure, database models, schemas, deployments, health checks.
+- **Catalog & policy**: CSV import, policy engine rules, discovery endpoint.
+- **Checkout**: state machine, row-locked inventory reservation.
+- **Agent**: Gemini native function-calling, typed tool dispatch, capped tool-call loop.
+- **Payments**: Razorpay Test Mode order creation, idempotent verification, HMAC signature check.
+- **Audit**: immutable event log tied to every state transition.
+- **Auth**: merchant registration, hashed API keys, `X-API-Key` dependency on every merchant-scoped route.
+- **Quality gates**: ruff clean, mypy clean (0 errors across 50 source files), 21/21 backend tests passing, frontend build + lint clean.
+- **Bootstrap**: `backend/scripts/seed_demo.py` — idempotent demo merchant + sample catalog for any fresh database.
 - **Phase 8-9**: Demo data, E2E Testing, Polish (Implemented).

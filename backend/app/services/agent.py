@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -71,7 +72,6 @@ def check_inventory(db: Session, merchant_id: str, variant_id: str):
 
 def create_checkout(db: Session, merchant_id: str, items: list):
     session_in = CheckoutSessionCreate(
-        merchant_id=merchant_id,
         items=[
             CheckoutItemCreate(variant_id=item["variant_id"], quantity=item["quantity"])
             for item in items
@@ -82,7 +82,7 @@ def create_checkout(db: Session, merchant_id: str, items: list):
     return {
         "checkout_id": session.id,
         "status": session.status,
-        "total_amount": float(session.total_amount),
+        "total_amount": float(session.total_amount or 0),
     }
 
 
@@ -92,7 +92,7 @@ def get_checkout(db: Session, merchant_id: str, checkout_id: str):
         return {
             "checkout_id": session.id,
             "status": session.status,
-            "total_amount": float(session.total_amount),
+            "total_amount": float(session.total_amount or 0),
         }
     return None
 
@@ -102,7 +102,7 @@ def update_checkout(
     merchant_id: str,
     checkout_id: str,
     status: str,
-    failure_reason: str = None,
+    failure_reason: str | None = None,
 ):
     try:
         session = checkout.update_checkout_status(db, checkout_id, status, failure_reason)
@@ -172,7 +172,7 @@ def get_return_policy(db: Session, merchant_id: str):
     return {"min_return_days": p.min_return_days} if p else None
 
 
-TOOLS = {
+TOOLS: dict[str, Callable[..., Any]] = {
     "search_products": search_products,
     "get_product": get_product,
     "check_inventory": check_inventory,
@@ -373,7 +373,9 @@ def _extract_text(response) -> str:
     return "".join(reply_parts).strip()
 
 
-def handle_chat(db: Session, merchant_id: str, messages: list):
+def handle_chat(
+    db: Session, merchant_id: str, messages: list
+) -> tuple[str, list[dict[str, Any]]]:
     if not settings.GEMINI_API_KEY:
         return "Gemini API key not set. Please configure GEMINI_API_KEY.", []
 

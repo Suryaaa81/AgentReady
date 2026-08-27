@@ -17,7 +17,6 @@ import { api } from "../lib/api";
 const RevenueChart = React.lazy(() => import("../components/RevenueChart"));
 const InventoryChart = React.lazy(() => import("../components/InventoryChart"));
 
-const MERCHANT_ID = "00000000-0000-4000-a000-000000000000";
 
 type ProductVariant = {
   id: string;
@@ -88,9 +87,9 @@ function Dashboard() {
     setError(null);
     try {
       const [prods, tl, pol] = await Promise.all([
-        api.getProducts(MERCHANT_ID).catch(() => []),
-        api.getMerchantTimeline(MERCHANT_ID).catch(() => []),
-        api.getPolicy(MERCHANT_ID).catch(() => null),
+        api.getProducts().catch(() => []),
+        api.getMerchantTimeline().catch(() => []),
+        api.getPolicy().catch(() => null),
       ]);
       setProducts(prods);
       setTimeline(tl);
@@ -228,7 +227,7 @@ function Dashboard() {
 
     try {
       setUploadProgress(10);
-      await api.importCatalog(MERCHANT_ID, selectedFile);
+      await api.importCatalog(selectedFile);
       setUploadProgress(65);
       await refresh();
       setUploadProgress(100);
@@ -245,7 +244,7 @@ function Dashboard() {
     if (!policy) return;
 
     try {
-      await api.updatePolicy(MERCHANT_ID, policy);
+      await api.updatePolicy(policy);
       setNotice("Merchant policy saved successfully.");
       setError(null);
     } catch {
