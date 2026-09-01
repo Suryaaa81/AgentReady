@@ -14,8 +14,8 @@ try:
     from google import genai
     from google.genai import types
 except ImportError:  # pragma: no cover - depends on runtime package installation
-    genai = None
-    types = None
+    genai = None  # type: ignore[assignment]
+    types = None  # type: ignore[assignment]
 
 
 def search_products(db: Session, merchant_id: str, query: str):
@@ -334,7 +334,7 @@ def _to_gemini_contents(messages: list):
         contents.append(
             types.Content(
                 role=normalized_role,
-                parts=[types.Part.from_text(str(content))],
+                parts=[types.Part.from_text(text=str(content))],
             )
         )
     return contents
