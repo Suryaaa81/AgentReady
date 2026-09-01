@@ -62,6 +62,19 @@ def create_payment_order(db: Session, checkout_id: str, merchant_id: str | None 
     if checkout.status != "AUTHORIZED":
         raise ValueError(f"Checkout is in {checkout.status} state, must be AUTHORIZED")
 
+    # Re-validate checkout expiration at payment initiation time
+    if checkout.expires_at:
+        expires_at = checkout.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at < datetime.now(UTC):
+            from app.services.checkout import update_checkout_status
+
+            update_checkout_status(
+                db, checkout.id, "EXPIRED", failure_reason="Checkout session has expired"
+            )
+            raise ValueError("Checkout session has expired")
+
     # Idempotency: if an order/payment already exists for this checkout, return it.
     existing_order = db.execute(
         select(Order).where(Order.checkout_id == checkout.id)
@@ -102,7 +115,7 @@ def create_payment_order(db: Session, checkout_id: str, merchant_id: str | None 
                     "receipt": str(order.id),
                     "notes": {
                         "checkout_id": checkout.id,
-                        "merchant_id": checkout.merchant_id
+                        "merchant_id": checkout.merchant_id,
                     },
                     "payment_capture": 1,
                 }
@@ -170,6 +183,14 @@ def verify_payment_signature(
     if not hmac.compare_digest(generated_signature, signature):
         payment.status = "FAILED"
         payment.order.status = "FAILED"
+        from app.services.checkout import update_checkout_status
+
+        update_checkout_status(
+            db,
+            payment.order.checkout_id,
+            "FAILED",
+            failure_reason="Invalid Razorpay signature",
+        )
         db.commit()
 
         log_event(
@@ -188,7 +209,10 @@ def verify_payment_signature(
     payment.razorpay_payment_id = rzp_payment_id
     payment.verified_at = datetime.now(UTC)
     payment.order.status = "COMPLETED"
-    payment.order.checkout.status = "COMPLETED"
+
+    from app.services.checkout import update_checkout_status
+
+    update_checkout_status(db, payment.order.checkout_id, "COMPLETED")
 
     receipt_data = _build_receipt(payment, payment.order)
     payment.receipt_data = receipt_data

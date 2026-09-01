@@ -82,3 +82,67 @@ HAT-2,Cap,Hats,500.00,HAT-2-M,10"""
         assert "credentials" in str(exc)
     else:
         raise AssertionError("production must not create synthetic Razorpay orders")
+
+
+def test_payment_order_rejects_expired_checkout(db, merchant):
+    from datetime import UTC, datetime, timedelta
+
+    csv = """sku,name,category,base_price,variant_sku,inventory_available
+HAT-EXP,Cap,Hats,500.00,HAT-EXP-M,10"""
+    catalog.import_catalog_csv(db, merchant.id, csv)
+    variant_id = catalog.get_products(db, merchant.id)[0].variants[0].id
+    checkout_session = checkout.create_checkout(
+        db,
+        merchant.id,
+        CheckoutSessionCreate(items=[CheckoutItemCreate(variant_id=variant_id, quantity=2)]),
+    )
+    checkout.update_checkout_status(db, checkout_session.id, "AUTHORIZED")
+
+    # Manually expire the checkout session
+    checkout_session.expires_at = datetime.now(UTC) - timedelta(minutes=5)
+    db.commit()
+
+    import pytest
+
+    with pytest.raises(ValueError, match="expired"):
+        payment.create_payment_order(db, checkout_session.id, merchant.id)
+
+    db.refresh(checkout_session)
+    assert checkout_session.status in ("EXPIRED", "FAILED")
+
+
+def test_tampered_signature_fails_payment_and_releases_inventory(db, merchant):
+    from app.models.catalog import Inventory
+
+    csv = """sku,name,category,base_price,variant_sku,inventory_available
+HAT-SIG,Cap,Hats,500.00,HAT-SIG-M,10"""
+    catalog.import_catalog_csv(db, merchant.id, csv)
+    variant_id = catalog.get_products(db, merchant.id)[0].variants[0].id
+    checkout_session = checkout.create_checkout(
+        db,
+        merchant.id,
+        CheckoutSessionCreate(items=[CheckoutItemCreate(variant_id=variant_id, quantity=4)]),
+    )
+    checkout.update_checkout_status(db, checkout_session.id, "AUTHORIZED")
+    pay = payment.create_payment_order(db, checkout_session.id, merchant.id)
+
+    settings.RAZORPAY_KEY_SECRET = "test_secret"
+    tampered_sig = "deadbeef1234567890abcdef"
+
+    import pytest
+
+    with pytest.raises(ValueError, match="Invalid Razorpay signature"):
+        payment.verify_payment_signature(
+            db, pay.razorpay_order_id, "pay_fake", tampered_sig, merchant.id
+        )
+
+    db.refresh(pay)
+    db.refresh(checkout_session)
+    assert pay.status == "FAILED"
+    assert checkout_session.status == "FAILED"
+
+    # Inventory must be released back to available
+    inv = db.execute(db.query(Inventory).filter_by(variant_id=variant_id).statement).scalar_one()
+    assert inv.available_qty == 10
+    assert inv.reserved_qty == 0
+
