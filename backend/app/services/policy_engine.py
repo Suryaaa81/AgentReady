@@ -12,23 +12,40 @@ from app.models.order import Order
 PolicyDecision = Literal["ALLOW", "REJECT", "REQUIRE_HUMAN_APPROVAL"]
 
 
-def _spent_today(db: Session, merchant_id: str) -> float:
-    """Sum of COMPLETED order totals for this merchant since UTC midnight.
+def _spent_today(db: Session, merchant_id: str, exclude_checkout_id: str | None = None) -> float:
+    """Sum of COMPLETED order totals and active (AUTHORIZED / PAYMENT_PENDING)
+    checkout sessions for this merchant since UTC midnight.
 
-    Used to enforce MerchantPolicy.daily_limit. Without this, an agent can
-    legally split one large purchase into N smaller checkouts that each
-    individually clear max_autonomous_amount/approval_threshold — the
-    daily_limit column existed on the model but was never read anywhere.
+    Used to enforce MerchantPolicy.daily_limit. Counting active in-flight
+    authorizations prevents race conditions where two concurrent checkouts both
+    clear the daily limit before either payment completes.
     """
     day_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    total = db.execute(
+    now = datetime.now(UTC)
+
+    completed_total = db.execute(
         select(func.coalesce(func.sum(Order.total_amount), 0)).where(
             Order.merchant_id == merchant_id,
             Order.status == "COMPLETED",
             Order.created_at >= day_start,
         )
     ).scalar_one()
-    return float(total or 0)
+
+    active_checkouts_query = select(
+        func.coalesce(func.sum(CheckoutSession.total_amount), 0)
+    ).where(
+        CheckoutSession.merchant_id == merchant_id,
+        CheckoutSession.status.in_(["AUTHORIZED", "PAYMENT_PENDING"]),
+        CheckoutSession.created_at >= day_start,
+        (CheckoutSession.expires_at.is_(None)) | (CheckoutSession.expires_at > now),
+    )
+    if exclude_checkout_id:
+        active_checkouts_query = active_checkouts_query.where(
+            CheckoutSession.id != exclude_checkout_id
+        )
+    active_total = db.execute(active_checkouts_query).scalar_one()
+
+    return float(completed_total or 0) + float(active_total or 0)
 
 
 class PolicyResult:
@@ -44,6 +61,7 @@ def evaluate_checkout_policy(
         select(MerchantPolicy)
         .where(MerchantPolicy.merchant_id == checkout.merchant_id)
         .order_by(MerchantPolicy.created_at.desc())
+        .with_for_update()
     ).scalar_one_or_none()
 
     if not policy:
@@ -96,10 +114,10 @@ def evaluate_checkout_policy(
                         "REJECT", f"Intent category mismatch for '{variant.product.category}'"
                     )
 
-    # Daily limit check — blocks structuring (splitting one purchase into
-    # several under-threshold checkouts across the same day).
+    # Daily limit check — blocks structuring and concurrent overspend (counting both
+    # completed orders and active authorized checkouts).
     if policy.daily_limit is not None:
-        spent_today = _spent_today(db, checkout.merchant_id)
+        spent_today = _spent_today(db, checkout.merchant_id, exclude_checkout_id=checkout.id)
         if spent_today + float(amount) > float(policy.daily_limit):
             return PolicyResult(
                 "REJECT",

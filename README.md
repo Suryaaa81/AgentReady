@@ -2,7 +2,7 @@
 
 > Merchant-side agentic-commerce gateway — turns a merchant's catalog, inventory, and policies into an AI-accessible, policy-gated, auditable commerce interface with Razorpay payment execution.
 
-**Status:** ruff clean · mypy clean (0 errors across 38 files) · 34/34 backend tests passing · frontend Vite build & oxlint clean. Full writeup: [FINAL_BUILDATHON_REPORT.md](FINAL_BUILDATHON_REPORT.md).
+**Status:** ruff clean · mypy clean (0 errors across 38 files) · 32 passed + 1 skipped (live API) backend tests passing · frontend Vite build & oxlint clean. Full writeup: [FINAL_BUILDATHON_REPORT.md](FINAL_BUILDATHON_REPORT.md).
 
 ## Problem
 
@@ -13,7 +13,7 @@ AI buyers (agents) need a structured, bounded, auditable way to browse merchant 
 - **Track:** AI Growth & Agentic Commerce
 - **Product:** A merchant gateway that makes catalog, policy, inventory, checkout, and Razorpay payments safe for AI buyers
 - **Differentiator:** The model selects typed tools; the backend alone decides price, stock, policy, payment, and state
-- **Proof:** 34 automated backend tests, clean Ruff/mypy/frontend gates, authenticated payment actions, durable audit receipts, oversell prevention, expired session invalidation, and explicit stockout / policy rejection failure paths
+- **Proof:** Automated backend tests, clean Ruff/mypy/frontend gates, authenticated payment actions, durable audit receipts, oversell prevention, expired session invalidation, and explicit stockout / policy rejection failure paths
 - **Best demo:** Ask for a product, trigger a policy decision, show the reserved inventory, then force a stockout and show the rejected payment plus audit event
 
 ## Protocol Positioning

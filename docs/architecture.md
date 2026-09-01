@@ -244,7 +244,7 @@ merchant's own key.
 - `POST /checkout/sessions` — auth required
 - `GET /checkout/sessions/{id}` — public (see Authentication above)
 - `POST /checkout/sessions/{id}/cancel` — public
-- `POST /checkout/sessions/{id}/authorize` — public
+- `POST /checkout/sessions/{id}/authorize` — public (optional `?intent_id=` query param)
 - `POST /checkout/intents` — auth required
 
 ### Agent
@@ -267,12 +267,12 @@ Production deployments use PostgreSQL and Alembic migrations instead.
 ## Build Log
 
 - **Foundation**: monorepo structure, database models, schemas, deployments, health checks.
-- **Catalog & policy**: CSV import, policy engine rules, discovery endpoint.
+- **Catalog & policy**: CSV import, policy engine rules, discovery endpoint, row-locked concurrent daily spend tracking.
 - **Checkout**: state machine, row-locked inventory reservation, oversell protection, and completion release.
 - **Agent**: Gemini native function-calling with google-genai SDK, typed tool dispatch, capped tool-call loop.
 - **Payments**: Razorpay Test Mode order creation, idempotent verification, HMAC signature check, fail-closed validation, inventory release on signature rejection.
 - **Audit**: immutable event log tied to every state transition, aggregate metrics API.
 - **Auth**: merchant registration, hashed API keys, `X-API-Key` dependency on every merchant-scoped route.
-- **Quality gates**: ruff clean, mypy clean (0 errors), 34/34 backend tests passing, frontend build + oxlint clean.
+- **Quality gates**: ruff clean, mypy clean (0 errors), 32 passed + 1 skipped (live API) backend tests passing, frontend build + oxlint clean.
 - **Bootstrap**: `backend/scripts/seed_demo.py` — idempotent demo merchant + sample catalog for any fresh database.
 

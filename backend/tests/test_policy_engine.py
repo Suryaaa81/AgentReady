@@ -182,3 +182,44 @@ HAT-2,Cap,Hats,500.00,HAT-2-M,10"""
 
     assert result.decision == "REJECT"
     assert "another merchant" in result.reason
+
+
+def test_policy_engine_daily_limit_accounts_for_in_flight_authorizations(db, merchant):
+    """If an earlier checkout is AUTHORIZED or in PAYMENT_PENDING today, its amount
+    must be counted toward the daily_limit so subsequent concurrent checkouts cannot
+    bypass the daily limit before the first payment completes."""
+    csv = """sku,name,category,base_price,variant_sku,inventory_available
+SHIRT,Shirt,Shirts,400.00,SHIRT-M,50"""
+    catalog.import_catalog_csv(db, merchant.id, csv)
+    prods = catalog.get_products(db, merchant.id)
+    vid = prods[0].variants[0].id
+
+    from app.services.policy import upsert_policy
+
+    # 500 daily limit, 1000 max autonomous per checkout
+    upsert_policy(
+        db,
+        merchant.id,
+        MerchantPolicyCreate(max_autonomous_amount=1000, daily_limit=500),
+    )
+
+    session_create = CheckoutSessionCreate(
+        items=[CheckoutItemCreate(variant_id=vid, quantity=1)]
+    )
+
+    # Session 1 is created and AUTHORIZED (400 INR)
+    checkout_1 = checkout.create_checkout(db, merchant.id, session_create)
+    res_1 = policy_engine.evaluate_checkout_policy(db, checkout_1)
+    assert res_1.decision == "ALLOW"
+    checkout.update_checkout_status(db, checkout_1.id, "AUTHORIZED")
+
+    # Session 2 is created concurrently (400 INR) while Session 1 is still
+    # AUTHORIZED (not yet completed payment)
+    checkout_2 = checkout.create_checkout(db, merchant.id, session_create)
+    res_2 = policy_engine.evaluate_checkout_policy(db, checkout_2)
+
+    # Session 2 must be REJECTED because in-flight active authorization (400) +
+    # Session 2 (400) = 800 > 500
+    assert res_2.decision == "REJECT"
+    assert "Daily spend limit exceeded" in res_2.reason
+
