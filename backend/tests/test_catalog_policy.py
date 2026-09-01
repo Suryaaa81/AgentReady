@@ -42,3 +42,28 @@ def test_policy_upsert(db, merchant):
     res2 = policy.upsert_policy(db, merchant.id, p2)
     assert res2.id == res.id  # Same policy updated
     assert res2.max_autonomous_amount == 6000
+
+
+def test_catalog_import_validation_rejects_negative_and_malformed(db, merchant):
+    csv_data = "\n".join([
+        _CSV_HDR,
+        # Row 1: negative base price
+        'BAD-1,Bad Price,,Shoes,-100.00,INR,BAD-1-M,,50.00,10',
+        # Row 2: negative variant price override
+        'BAD-2,Bad Override,,Shoes,100.00,INR,BAD-2-M,,-50.00,10',
+        # Row 3: negative inventory
+        'BAD-3,Bad Stock,,Shoes,100.00,INR,BAD-3-M,,50.00,-5',
+        # Row 4: missing SKU
+        ',No SKU,,Shoes,100.00,INR,BAD-4-M,,50.00,5',
+        # Row 5: invalid JSON attributes
+        'BAD-5,Bad JSON,,Shoes,100.00,INR,BAD-5-M,"invalid-json",50.00,5',
+    ])
+
+    result = catalog.import_catalog_csv(db, merchant.id, csv_data)
+    assert len(result.errors) == 5
+    assert any("base_price cannot be negative" in err for err in result.errors)
+    assert any("variant_price_override cannot be negative" in err for err in result.errors)
+    assert any("inventory_available cannot be negative" in err for err in result.errors)
+    assert any("Missing product sku" in err for err in result.errors)
+    assert any("Invalid JSON in variant_attributes" in err for err in result.errors)
+

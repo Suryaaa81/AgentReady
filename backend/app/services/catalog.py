@@ -51,6 +51,11 @@ def import_catalog_csv(db: Session, merchant_id: str, csv_content: str) -> Catal
                 result.errors.append(f"Row {row_idx + 1}: Missing product sku")
                 continue
 
+            base_price = Decimal(row.get("base_price", "0"))
+            if base_price < 0:
+                result.errors.append(f"Row {row_idx + 1}: base_price cannot be negative")
+                continue
+
             # Product upsert
             product = db.execute(
                 select(Product).where(Product.merchant_id == merchant_id, Product.sku == sku)
@@ -62,7 +67,7 @@ def import_catalog_csv(db: Session, merchant_id: str, csv_content: str) -> Catal
                     name=row.get("name", "Unnamed Product"),
                     description=row.get("description"),
                     category=row.get("category"),
-                    base_price=Decimal(row.get("base_price", "0")),
+                    base_price=base_price,
                     currency=row.get("currency", "INR"),
                     is_active=True,
                 )
@@ -73,7 +78,7 @@ def import_catalog_csv(db: Session, merchant_id: str, csv_content: str) -> Catal
                 product.name = row.get("name") or product.name
                 product.description = row.get("description") or product.description
                 if row.get("base_price"):
-                    product.base_price = Decimal(row["base_price"])
+                    product.base_price = base_price
                 result.products_updated += 1
                 db.flush()
 
@@ -96,6 +101,18 @@ def import_catalog_csv(db: Session, merchant_id: str, csv_content: str) -> Catal
                 override_price = None
                 if row.get("variant_price_override"):
                     override_price = Decimal(row["variant_price_override"])
+                    if override_price < 0:
+                        result.errors.append(
+                            f"Row {row_idx + 1}: variant_price_override cannot be negative"
+                        )
+                        continue
+
+                inv_qty = int(row.get("inventory_available") or "0")
+                if inv_qty < 0:
+                    result.errors.append(
+                        f"Row {row_idx + 1}: inventory_available cannot be negative"
+                    )
+                    continue
 
                 if not variant:
                     variant = ProductVariant(
@@ -111,7 +128,7 @@ def import_catalog_csv(db: Session, merchant_id: str, csv_content: str) -> Catal
                     # Create inventory
                     inventory = Inventory(
                         variant_id=variant.id,
-                        available_qty=int(row.get("inventory_available") or "0"),
+                        available_qty=inv_qty,
                         reserved_qty=0,
                     )
                     db.add(inventory)
@@ -126,7 +143,7 @@ def import_catalog_csv(db: Session, merchant_id: str, csv_content: str) -> Catal
                         select(Inventory).where(Inventory.variant_id == variant.id)
                     ).scalar_one_or_none()
                     if existing_inventory and row.get("inventory_available") is not None:
-                        existing_inventory.available_qty = int(row["inventory_available"])
+                        existing_inventory.available_qty = inv_qty
                 db.flush()
 
         except Exception as e:

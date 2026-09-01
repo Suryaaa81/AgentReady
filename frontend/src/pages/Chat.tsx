@@ -31,8 +31,15 @@ export default function Chat() {
           }
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Error: Unable to process message (${e?.message || "connection error"}). Please check your API key or server status.`,
+        },
+      ]);
     }
   };
 
