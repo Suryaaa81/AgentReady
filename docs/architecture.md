@@ -200,6 +200,8 @@ Side states reachable from most states:
 | event_type | VARCHAR | |
 | actor | VARCHAR | agent / merchant / system |
 | payload | JSONB | |
+| ip_address | VARCHAR | nullable |
+| user_agent | VARCHAR | nullable |
 | created_at | TIMESTAMPTZ | immutable |
 
 ## Authentication
@@ -254,6 +256,7 @@ merchant's own key.
 
 ### Audit
 - `GET /audit/merchant` — auth required
+- `GET /audit/metrics` — auth required; returns aggregated checkout success/failure counts, rates, and event breakdown
 - `GET /audit/checkout/{id}` — public (see Authentication above)
 
 For local development, `backend/scripts/bootstrap_dev.ps1` creates a
@@ -265,11 +268,11 @@ Production deployments use PostgreSQL and Alembic migrations instead.
 
 - **Foundation**: monorepo structure, database models, schemas, deployments, health checks.
 - **Catalog & policy**: CSV import, policy engine rules, discovery endpoint.
-- **Checkout**: state machine, row-locked inventory reservation.
-- **Agent**: Gemini native function-calling, typed tool dispatch, capped tool-call loop.
-- **Payments**: Razorpay Test Mode order creation, idempotent verification, HMAC signature check.
-- **Audit**: immutable event log tied to every state transition.
+- **Checkout**: state machine, row-locked inventory reservation, oversell protection, and completion release.
+- **Agent**: Gemini native function-calling with google-genai SDK, typed tool dispatch, capped tool-call loop.
+- **Payments**: Razorpay Test Mode order creation, idempotent verification, HMAC signature check, fail-closed validation, inventory release on signature rejection.
+- **Audit**: immutable event log tied to every state transition, aggregate metrics API.
 - **Auth**: merchant registration, hashed API keys, `X-API-Key` dependency on every merchant-scoped route.
-- **Quality gates**: ruff clean, mypy clean (0 errors across 51 source files), 26/26 backend tests passing, frontend build + lint clean.
+- **Quality gates**: ruff clean, mypy clean (0 errors), 34/34 backend tests passing, frontend build + oxlint clean.
 - **Bootstrap**: `backend/scripts/seed_demo.py` — idempotent demo merchant + sample catalog for any fresh database.
-- **Phase 8-9**: Demo data, E2E Testing, Polish (Implemented).
+
