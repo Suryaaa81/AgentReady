@@ -2,7 +2,7 @@
 
 > Merchant-side agentic-commerce gateway — turns a merchant's catalog, inventory, and policies into an AI-accessible, policy-gated, auditable commerce interface with Razorpay payment execution.
 
-**Status:** ruff clean · mypy clean (0 errors across 38 files) · 32 passed + 1 skipped (live API) backend tests passing · frontend Vite build & oxlint clean. Full writeup: [FINAL_BUILDATHON_REPORT.md](FINAL_BUILDATHON_REPORT.md).
+**Status:** ruff clean · mypy clean (0 errors across 38 files) · 36/36 backend tests passing · frontend Vite build & oxlint clean. Full writeup: [FINAL_BUILDATHON_REPORT.md](FINAL_BUILDATHON_REPORT.md).
 
 ## Problem
 

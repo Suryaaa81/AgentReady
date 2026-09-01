@@ -273,6 +273,6 @@ Production deployments use PostgreSQL and Alembic migrations instead.
 - **Payments**: Razorpay Test Mode order creation, idempotent verification, HMAC signature check, fail-closed validation, inventory release on signature rejection.
 - **Audit**: immutable event log tied to every state transition, aggregate metrics API.
 - **Auth**: merchant registration, hashed API keys, `X-API-Key` dependency on every merchant-scoped route.
-- **Quality gates**: ruff clean, mypy clean (0 errors), 32 passed + 1 skipped (live API) backend tests passing, frontend build + oxlint clean.
+- **Quality gates**: ruff clean, mypy clean (0 errors), 36/36 backend tests passing, frontend build + oxlint clean.
 - **Bootstrap**: `backend/scripts/seed_demo.py` — idempotent demo merchant + sample catalog for any fresh database.
 
