@@ -118,9 +118,9 @@ None of this logic lives in a prompt. It's plain Python, deterministic, testable
 | Charts | **Recharts** | ^3.10 | Used for the dashboard's Revenue/Inventory visualizations — declarative React charting that composes naturally with the rest of the component tree. |
 | Routing | **React Router** | ^7.18 | Standard SPA routing for Dashboard / Chat / Checkout views. |
 | Linting | **ruff** (backend), **oxlint** (frontend) | — | Both are Rust-based, fast enough to run in a pre-commit/CI loop without friction — chosen over slower Python/JS-native linters (flake8/eslint) specifically so linting doesn't become a step people skip under deadline pressure. |
-| Type checking | **mypy** | — | Configured for the backend; clean — 0 errors across 51 source files. |
+| Type checking | **mypy** | — | Configured for the backend; clean — 0 errors across 38 source files. |
 | Auth | Hashed API keys (`hashlib`/`secrets`, stdlib) | — | No third-party auth library pulled in for a single-credential-per-merchant model — `secrets.token_urlsafe` for key generation and SHA-256 for at-rest hashing is the whole mechanism, verified via a FastAPI dependency (`X-API-Key` header) rather than middleware, so it composes cleanly with route-level `Depends()` and is trivial to swap for OAuth/JWT later without touching route logic. |
-| Testing | **pytest** | ≥8.2 | 26 backend tests covering catalog/policy, checkout, health, payment, policy-engine logic (including daily-limit structuring prevention), audit responses, state transitions, payment authorization, and merchant isolation — all passing. |
+| Testing | **pytest** | ≥8.2 | 36 backend tests covering catalog/policy, checkout, health, payment, policy-engine logic (including daily-limit structuring and in-flight concurrency prevention), CSV validation, audit responses, state transitions, payment authorization, and merchant isolation — all passing. |
 | Backend hosting | **Railway** | — | Simple Docker-based deploy for a FastAPI + Postgres backend without managing infrastructure by hand; fits a buildathon timeline. |
 | Frontend hosting | **Vercel** | — | Standard zero-config deploy target for a Vite/React SPA. |
 
@@ -138,10 +138,10 @@ None of this logic lives in a prompt. It's plain Python, deterministic, testable
 **Solid, verified (tests pass, code reviewed line-by-line):**
 - Payment signature verification is genuinely production-grade: constant-time compare, row locking, idempotent on retries, rejects a payment_id switch on an already-linked order.
 - Checkout→order→payment idempotency is correct.
-- Policy engine (including the daily-limit fix now shipped) closes the "structuring" bypass class.
+- Policy engine (including the daily-limit fix now shipped) closes the "structuring" and in-flight concurrency race conditions.
 - Gemini tool-calling loop is now capped (was previously unbounded — a real cost/DoS risk from a runaway or prompt-injected tool-call chain).
 - Merchant authentication is real: hashed API keys, never trusted from the client, verified against a live server (401 on missing/bad key, 200 with correct data on a valid one) and against cross-merchant impersonation attempts specifically.
-- 26/26 backend tests pass, ruff clean, mypy clean (0 errors), frontend build and lint clean — all four gates verified locally, not just claimed.
+- 36/36 backend tests pass, ruff clean, mypy clean (0 errors), frontend build and lint clean — all four gates verified locally, not just claimed.
 - `scripts/seed_demo.py` makes the demo reproducible on a fresh database — verified idempotent (safe to re-run) and verified against a from-scratch SQLite DB end-to-end via a live server.
 - `scripts/bootstrap_dev.ps1` provides a cwd-independent Windows first-run path that creates both env files, seeds the demo, and installs backend and frontend dependencies.
 - Payment order creation and verification are merchant-authenticated, checkout transitions are explicitly guarded, cross-merchant intents are rejected, production Razorpay failures fail closed, and verified receipt data is stored durably with the payment record.

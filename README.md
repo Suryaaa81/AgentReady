@@ -2,7 +2,10 @@
 
 > Merchant-side agentic-commerce gateway — turns a merchant's catalog, inventory, and policies into an AI-accessible, policy-gated, auditable commerce interface with Razorpay payment execution.
 
-**Status:** ruff clean · mypy clean (0 errors across 38 files) · 36/36 backend tests passing · frontend Vite build & oxlint clean. Full writeup: [FINAL_BUILDATHON_REPORT.md](FINAL_BUILDATHON_REPORT.md).
+**Status:** ruff clean · mypy clean (0 errors across 38 files) · 36/36 backend tests passing · frontend Vite build & oxlint clean.
+
+Full writeup (problem, solution, protocol positioning): [FINAL_BUILDATHON_REPORT.md](FINAL_BUILDATHON_REPORT.md)
+Engineering & audit log: [docs/engineering-log/](docs/engineering-log/)
 
 ## Problem
 
@@ -56,6 +59,8 @@ AI buyer asks for shoes
 - PostgreSQL (or local SQLite for dev)
 
 ### One-command setup (Windows PowerShell)
+
+*(Note: If you are reviewing this on macOS or Linux, please skip to the manual setup steps below.)*
 
 From the repository root:
 
