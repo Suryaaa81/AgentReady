@@ -84,4 +84,5 @@ export const api = {
 
   // Audit
   getMerchantTimeline: (): Promise<any[]> => apiFetch("/audit/merchant"),
+  getMetrics: (): Promise<any> => apiFetch("/audit/metrics"),
 };

@@ -23,3 +23,14 @@ class AuditEventResponse(BaseModel):
     ip_address: str | None
     user_agent: str | None
     created_at: datetime
+
+
+class AuditMetricsResponse(BaseModel):
+    total_events: int
+    total_checkouts: int
+    completed_checkouts: int
+    failed_checkouts: int
+    policy_rejections: int
+    checkout_success_rate: float
+    policy_rejection_rate: float
+    event_breakdown: dict[str, int]

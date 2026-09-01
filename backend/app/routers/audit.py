@@ -3,11 +3,18 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.merchant import Merchant
-from app.schemas.audit import AuditEventResponse
+from app.schemas.audit import AuditEventResponse, AuditMetricsResponse
 from app.security import get_current_merchant
 from app.services import audit
 
 router = APIRouter(prefix="/audit", tags=["audit"])
+
+
+@router.get("/metrics", response_model=AuditMetricsResponse)
+def get_merchant_metrics(
+    current: Merchant = Depends(get_current_merchant), db: Session = Depends(get_db)
+):
+    return audit.get_merchant_metrics(db, current.id)
 
 
 @router.get("/merchant", response_model=list[AuditEventResponse])

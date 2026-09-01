@@ -80,6 +80,31 @@ def test_checkout_audit_endpoint_returns_events(client, db, merchant):
     assert response.json()[0]["event_type"] == "CHECKOUT_CREATED"
 
 
+def test_merchant_metrics_endpoint(client, db, merchant, auth_headers):
+    csv_data = "\n".join([
+        _CSV_HDR,
+        "SHOE-METRICS,Sneaker,,Shoes,1000.00,INR,SHOE-METRICS-M,,1000.00,10",
+    ])
+    catalog.import_catalog_csv(db, merchant.id, csv_data)
+    variant_id = catalog.get_products(db, merchant.id)[0].variants[0].id
+    c1 = checkout.create_checkout(
+        db,
+        merchant.id,
+        CheckoutSessionCreate(items=[CheckoutItemCreate(variant_id=variant_id, quantity=1)]),
+    )
+    checkout.update_checkout_status(db, c1.id, "AUTHORIZED")
+    checkout.update_checkout_status(db, c1.id, "PAYMENT_PENDING")
+    checkout.update_checkout_status(db, c1.id, "COMPLETED")
+
+    res = client.get("/audit/metrics", headers=auth_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total_checkouts"] >= 1
+    assert data["completed_checkouts"] >= 1
+    assert data["checkout_success_rate"] > 0
+    assert "event_breakdown" in data
+
+
 def test_checkout_rejects_illegal_transition(db, merchant):
     csv_data = "\n".join([
         _CSV_HDR,
