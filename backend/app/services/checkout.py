@@ -115,15 +115,22 @@ def update_checkout_status(
     if failure_reason:
         session_obj.failure_reason = failure_reason
 
-    # If cancelled or failed, release reserved inventory
+    # If cancelled or failed, release reserved inventory back to available
     if status in ("CANCELLED", "FAILED", "EXPIRED"):
         for item in session_obj.items:
             inventory = db.execute(
                 select(Inventory).where(Inventory.variant_id == item.variant_id).with_for_update()
             ).scalar_one_or_none()
             if inventory:
-                inventory.reserved_qty -= item.quantity
+                inventory.reserved_qty = max(0, inventory.reserved_qty - item.quantity)
                 inventory.available_qty += item.quantity
+    elif status == "COMPLETED":
+        for item in session_obj.items:
+            inventory = db.execute(
+                select(Inventory).where(Inventory.variant_id == item.variant_id).with_for_update()
+            ).scalar_one_or_none()
+            if inventory:
+                inventory.reserved_qty = max(0, inventory.reserved_qty - item.quantity)
 
     db.commit()
     db.refresh(session_obj)

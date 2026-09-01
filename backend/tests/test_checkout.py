@@ -126,3 +126,54 @@ def test_human_approval_continues_to_authorized(client, db, merchant, auth_heade
     assert authorization.json()["status"] == "AUTHORIZATION_REQUIRED"
     approved = client.post(f"/checkout/sessions/{checkout_id}/authorize")
     assert approved.json()["status"] == "AUTHORIZED"
+
+
+def test_checkout_completion_releases_reserved_inventory(db, merchant):
+    csv_data = "\n".join([
+        _CSV_HDR,
+        "SHOE-6,Sneaker,,Shoes,1000.00,INR,SHOE-6-M,,1000.00,10",
+    ])
+    catalog.import_catalog_csv(db, merchant.id, csv_data)
+    variant_id = catalog.get_products(db, merchant.id)[0].variants[0].id
+
+    session_create = CheckoutSessionCreate(
+        items=[CheckoutItemCreate(variant_id=variant_id, quantity=3)]
+    )
+    checkout_session = checkout.create_checkout(db, merchant.id, session_create)
+    checkout.update_checkout_status(db, checkout_session.id, "AUTHORIZED")
+    checkout.update_checkout_status(db, checkout_session.id, "PAYMENT_PENDING")
+    checkout.update_checkout_status(db, checkout_session.id, "COMPLETED")
+
+    inv = db.execute(db.query(Inventory).filter_by(variant_id=variant_id).statement).scalar_one()
+    assert inv.available_qty == 7
+    assert inv.reserved_qty == 0
+
+
+def test_concurrent_checkout_prevents_oversell(db, merchant):
+    csv_data = "\n".join([
+        _CSV_HDR,
+        "SHOE-7,Sneaker,,Shoes,1000.00,INR,SHOE-7-M,,1000.00,5",
+    ])
+    catalog.import_catalog_csv(db, merchant.id, csv_data)
+    variant_id = catalog.get_products(db, merchant.id)[0].variants[0].id
+
+    # First checkout takes 3 of 5
+    c1 = checkout.create_checkout(
+        db,
+        merchant.id,
+        CheckoutSessionCreate(items=[CheckoutItemCreate(variant_id=variant_id, quantity=3)]),
+    )
+    assert c1.status == "READY"
+
+    # Second checkout requests 3 of 5 (only 2 left) -> must raise Insufficient stock
+    with pytest.raises(ValueError, match="Insufficient stock"):
+        checkout.create_checkout(
+            db,
+            merchant.id,
+            CheckoutSessionCreate(items=[CheckoutItemCreate(variant_id=variant_id, quantity=3)]),
+        )
+
+    inv = db.execute(db.query(Inventory).filter_by(variant_id=variant_id).statement).scalar_one()
+    assert inv.available_qty == 2
+    assert inv.reserved_qty == 3
+
